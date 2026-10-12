@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>XYStation · 个人作品站</title>
+    <meta name="description" content="XYStation 个人作品站 — 项目、实验与正在做的事。" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Chivo+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;500;700&family=Syne:wght@700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <div class="grain" aria-hidden="true"></div>
+
+    <header class="topbar">
+      <a class="mark" href="#top">XYSTATION</a>
+      <nav>
+        <a href="#works">作品</a>
+        <a href="#about">关于</a>
+        <a href="#contact">联系</a>
+      </nav>
+      <span class="clock" id="clock">00:00:00</span>
+    </header>
+
+    <main id="top">
+      <section class="hero">
+        <p class="eyebrow">GOATALK · PERSONAL STATION · 2026</p>
+        <h1>XYSTATION</h1>
+        <p class="lede">
+          个人作品站。把做过的项目、正在实验的想法，停靠在同一个站台。
+        </p>
+        <div class="hero-meta">
+          <span>站台 01</span>
+          <span>状态 · 开放中</span>
+          <a href="https://gitee.com/GoaTalk/xystation" target="_blank" rel="noopener">Gitee 仓库</a>
+        </div>
+      </section>
+
+      <section id="works" class="board">
+        <div class="section-head">
+          <h2>出发时刻表</h2>
+          <p>点击一行查看项目说明。把下面占位项换成你自己的作品即可。</p>
+        </div>
+
+        <div class="board-legend">
+          <span>车次</span>
+          <span>项目</span>
+          <span>方向</span>
+          <span>状态</span>
+        </div>
+
+        <button class="row" type="button" data-panel="p1">
+          <span class="code">XY-01</span>
+          <span class="name">XYStation 本站</span>
+          <span class="dest">静态站点 / Gitee Pages</span>
+          <span class="status on">到站</span>
+        </button>
+        <article class="panel" id="p1">
+          <p>
+            当前这个网站本身就是第一个作品：纯 HTML / CSS / JS，不依赖打包工具，方便直接挂到 Gitee Pages。
+          </p>
+          <p>接下来可以把截图、仓库地址、在线演示补进这里。</p>
+        </article>
+
+        <button class="row" type="button" data-panel="p2">
+          <span class="code">XY-02</span>
+          <span class="name">项目名称待填</span>
+          <span class="dest">例如：小工具 / 游戏 / 课程作业</span>
+          <span class="status wait">待发车</span>
+        </button>
+        <article class="panel" id="p2">
+          <p>在 <code>index.html</code> 里改项目名、方向和技术栈，并补上一句话介绍。</p>
+        </article>
+
+        <button class="row" type="button" data-panel="p3">
+          <span class="code">XY-03</span>
+          <span class="name">实验进行中</span>
+          <span class="dest">学习记录 / 原型</span>
+          <span class="status wait">待发车</span>
+        </button>
+        <article class="panel" id="p3">
+          <p>适合放还没做完、但想展示思路的东西。完成后再把状态改成「到站」。</p>
+        </article>
+      </section>
+
+      <section id="about" class="about">
+        <div class="section-head">
+          <h2>关于这站</h2>
+        </div>
+        <div class="about-grid">
+          <p>
+            你好，我是 <strong>GoaTalk</strong>。XYStation 用来集中展示个人作品，而不是一份很长的简历。
+            把真实项目替换占位文案后，这里就会变成你的主页。
+          </p>
+          <ul class="skills">
+            <li>HTML / CSS / JavaScript</li>
+            <li>Git / Gitee</li>
+            <li>持续补充你的技能</li>
+          </ul>
+        </div>
+      </section>
+
+      <section id="contact" class="contact">
+        <div class="section-head">
+          <h2>联络</h2>
+          <p>公开联系方式写在这里。</p>
+        </div>
+        <div class="contact-list">
+          <a href="https://gitee.com/GoaTalk" target="_blank" rel="noopener">Gitee · GoaTalk</a>
+          <a href="mailto:zxy0816508@163.com">zxy0816508@163.com</a>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <span>XYStation / GoaTalk</span>
+      <span>开往下一趟项目</span>
+    </footer>
+
+    <script src="js/main.js"></script>
+  </body>
+</html>
