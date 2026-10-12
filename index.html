@@ -41,8 +41,8 @@
       <p class="kicker gate-ui">GODTALK · PERSONAL STATION · 2026</p>
       <h1 class="fly-title">XYSTATION</h1>
       <button id="enter" class="gate-ui" type="button">
-        <span>滚动滚轮推移镜头</span>
-        <strong>SCROLL</strong>
+        <span>向上滚动进入站台</span>
+        <strong>SCROLL UP</strong>
       </button>
     </section>
 
@@ -74,10 +74,34 @@
       <div class="dossier-body" id="d-body"></div>
     </aside>
 
-    <nav class="side" aria-label="快捷">
-      <button type="button" data-id="w1">作品</button>
-      <button type="button" data-id="about">关于</button>
-      <button type="button" data-id="contact">联络</button>
+    <nav class="rail" id="rail" aria-label="站台导航">
+      <p class="rail-kicker">Index</p>
+      <p class="rail-now" id="rail-now">00 入口</p>
+      <div class="rail-list">
+        <button type="button" class="rail-item" data-go="gate">
+          <i></i><em>00</em><span>入口</span>
+        </button>
+        <span class="rail-seg" data-from="gate" aria-hidden="true"></span>
+        <button type="button" class="rail-item" data-id="w1">
+          <i></i><em>01</em><span>本站</span>
+        </button>
+        <span class="rail-seg" data-from="w1" aria-hidden="true"></span>
+        <button type="button" class="rail-item" data-id="w2">
+          <i></i><em>02</em><span>待发</span>
+        </button>
+        <span class="rail-seg" data-from="w2" aria-hidden="true"></span>
+        <button type="button" class="rail-item" data-id="w3">
+          <i></i><em>03</em><span>实验</span>
+        </button>
+        <span class="rail-seg" data-from="w3" aria-hidden="true"></span>
+        <button type="button" class="rail-item" data-id="about">
+          <i></i><em>AB</em><span>关于</span>
+        </button>
+        <span class="rail-seg" data-from="about" aria-hidden="true"></span>
+        <button type="button" class="rail-item" data-id="contact">
+          <i></i><em>CT</em><span>联络</span>
+        </button>
+      </div>
     </nav>
 
     <script src="js/main.js"></script>

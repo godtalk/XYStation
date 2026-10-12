@@ -43,6 +43,18 @@ const title = document.querySelector(".fly-title");
 const gateUi = [...document.querySelectorAll(".gate-ui")];
 
 const PATH_MAX = 24;
+const WHEEL_STEP = 0.45;
+const TOUCH_SCALE = 0.05;
+const KEY_STEP = 0.8;
+const ENTER_STEP = 8;
+const NAV_STOPS = [
+  { key: "gate", at: 0, label: "00 入口" },
+  { key: "w1", at: 8, label: "01 本站" },
+  { key: "w2", at: 12, label: "02 待发" },
+  { key: "w3", at: 16, label: "03 实验" },
+  { key: "about", at: 20, label: "AB 关于" },
+  { key: "contact", at: 23.2, label: "CT 联络" },
+];
 const SPACE = 48;
 const px = [
   [0, -18], [4, -12.34], [6, -7], [8, -2.5], [10, -2.5], [11, -1.6], [13, 0], [15, 0],
@@ -254,11 +266,41 @@ function applyProgress(t) {
   });
   poseAt(t);
   layoutBeacons();
+  syncRail(t);
   if (!ready) return;
   if (phase === "is-station") {
     if (t < 5.5) setPhase("is-gate");
   } else if (t >= 7) setPhase("is-station");
   else setPhase("is-gate");
+}
+
+function stopAt(t) {
+  let current = NAV_STOPS[0];
+  for (const stop of NAV_STOPS) {
+    if (t >= stop.at) current = stop;
+  }
+  return current;
+}
+
+function jumpTo(key) {
+  const stop = NAV_STOPS.find((item) => item.key === key);
+  if (!ready || !stop) return;
+  cam.target = stop.at;
+}
+
+function syncRail(t) {
+  const now = document.getElementById("rail-now");
+  const current = stopAt(t);
+  now.textContent = current.label;
+  NAV_STOPS.forEach((stop, index) => {
+    const next = NAV_STOPS[index + 1];
+    if (!next) return;
+    const span = next.at - stop.at;
+    const fill = span <= 0 ? 0 : clamp((t - stop.at) / span, 0, 1);
+    const seg = document.querySelector(`.rail-seg[data-from="${stop.key}"]`);
+    if (seg) seg.style.setProperty("--seg", `${fill * 100}%`);
+  });
+  if (dossier.hidden) setActiveNav(current.key);
 }
 
 function nudge(delta) {
@@ -286,6 +328,19 @@ function tickClock() {
   clock.textContent = new Date().toLocaleTimeString("zh-CN", { hour12: false });
 }
 
+function setActiveNav(key) {
+  const idx = NAV_STOPS.findIndex((item) => item.key === key);
+  document.querySelectorAll(".rail-item").forEach((btn) => {
+    const btnKey = btn.dataset.go === "gate" ? "gate" : btn.dataset.id;
+    const btnIdx = NAV_STOPS.findIndex((item) => item.key === btnKey);
+    const on = btnKey === key;
+    btn.classList.toggle("is-on", on);
+    btn.classList.toggle("is-passed", btnIdx >= 0 && idx >= 0 && btnIdx < idx);
+    if (on) btn.setAttribute("aria-current", "page");
+    else btn.removeAttribute("aria-current");
+  });
+}
+
 function openCard(id) {
   const card = cards[id];
   if (!card) return;
@@ -294,6 +349,7 @@ function openCard(id) {
   document.getElementById("d-meta").textContent = card.meta;
   document.getElementById("d-body").innerHTML = card.html;
   dossier.hidden = false;
+  setActiveNav(id);
 }
 
 function closeCard() {
@@ -331,19 +387,31 @@ window.addEventListener("mousemove", (event) => {
   document.documentElement.style.setProperty("--my", `${(event.clientY / innerHeight) * 100}%`);
 });
 
-document.getElementById("enter").addEventListener("click", () => nudge(1.6));
-document.querySelectorAll("[data-id]").forEach((el) => {
+document.getElementById("enter").addEventListener("click", () => nudge(ENTER_STEP));
+document.querySelectorAll(".beacon[data-id]").forEach((el) => {
   el.addEventListener("click", () => openCard(el.dataset.id));
 });
+document.querySelectorAll(".rail-item[data-id]").forEach((el) => {
+  el.addEventListener("click", () => {
+    jumpTo(el.dataset.id);
+    openCard(el.dataset.id);
+  });
+});
+document.querySelectorAll("[data-go='gate']").forEach((el) => {
+  el.addEventListener("click", () => {
+    closeCard();
+    jumpTo("gate");
+  });
+});
 document.getElementById("close").addEventListener("click", closeCard);
+setActiveNav(null);
 
 window.addEventListener(
   "wheel",
   (event) => {
     if (!dossier.hidden) return;
     event.preventDefault();
-    const delta = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY;
-    const step = (event.deltaY || 1) > 0 ? 0.12 : -0.12;
+    const step = event.deltaY > 0 ? -WHEEL_STEP : WHEEL_STEP;
     nudge(step);
   },
   { passive: false },
@@ -362,14 +430,14 @@ window.addEventListener(
   (event) => {
     event.preventDefault();
     const y = event.touches[0].clientY;
-    nudge((lastTouchY - y) * 0.018);
+    nudge((lastTouchY - y) * TOUCH_SCALE);
     lastTouchY = y;
   },
   { passive: false },
 );
 
 window.addEventListener("keydown", (event) => {
-  if (event.key === "ArrowDown" || event.key === "PageDown" || event.key === "Enter") nudge(0.35);
-  if (event.key === "ArrowUp" || event.key === "PageUp") nudge(-0.35);
+  if (event.key === "ArrowUp" || event.key === "PageUp" || event.key === "Enter") nudge(KEY_STEP);
+  if (event.key === "ArrowDown" || event.key === "PageDown") nudge(-KEY_STEP);
   if (event.key === "Escape") closeCard();
 });
