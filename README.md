@@ -2,6 +2,8 @@
 
 GodTalk 的个人作品站。纯静态页面，可直接部署到 Gitee Pages。
 
+打开后先加载进站，点 ENTER 进入站台，再点信标查看作品。
+
 仓库：<https://gitee.com/GodTalk/xystation>
 
 ## 本地预览
