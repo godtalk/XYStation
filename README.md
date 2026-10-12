@@ -1,8 +1,8 @@
 # XYStation
 
-GoaTalk 的个人作品站。纯静态页面，可直接部署到 Gitee Pages。
+godtalk 的个人作品站。纯静态页面，可直接部署到 Gitee Pages。
 
-仓库：<https://gitee.com/GoaTalk/xystation>
+仓库：<https://gitee.com/godtalk/XYStation>
 
 ## 本地预览
 
@@ -14,7 +14,7 @@ GoaTalk 的个人作品站。纯静态页面，可直接部署到 Gitee Pages。
 git init
 git add .
 git commit -m "first commit"
-git remote add origin https://gitee.com/GoaTalk/xystation.git
+git remote add origin https://gitee.com/godtalk/XYStation.git
 git push -u origin master
 ```
 
