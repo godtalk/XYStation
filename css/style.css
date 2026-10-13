@@ -51,7 +51,6 @@ body {
 
 .hud,
 .layer,
-.dossier,
 .rail {
   position: relative;
   z-index: 3;
@@ -76,8 +75,8 @@ body {
 .boot-text,
 .boot-pct,
 .platform-tag,
-.dossier-code,
-.dossier-meta,
+.holo-code,
+.holo-meta,
 .rail-kicker,
 .rail-item,
 .beacon span {
@@ -144,6 +143,7 @@ body {
 .gate {
   perspective: 640px;
   transform-style: preserve-3d;
+  z-index: 4;
 }
 
 .boot-core {
@@ -218,7 +218,7 @@ body {
   top: 16%;
   color: var(--muted);
   opacity: 0;
-  transition: opacity 0.8s ease 0.4s;
+  transition: opacity 0.22s ease;
 }
 
 .beacon {
@@ -278,61 +278,335 @@ body {
   }
 }
 
-.dossier {
-  position: fixed;
-  top: 0;
-  right: 0;
-  width: min(420px, 92vw);
-  height: 100%;
-  background: rgba(231, 226, 214, 0.94);
-  border-left: 1px solid var(--line);
-  padding: 88px 36px 40px;
-  z-index: 6;
-  overflow: auto;
-}
-
-.dossier[hidden] {
-  display: none;
-}
-
-.dossier-close {
+.dot {
   position: absolute;
-  top: 24px;
-  right: 24px;
+  left: 50%;
+  top: 50%;
   background: none;
   border: 0;
+  color: inherit;
+  cursor: default;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 4;
+}
+
+.dot i {
+  width: var(--dot, 12px);
+  height: var(--dot, 12px);
+  border: 1px solid var(--ink);
+  transform: rotate(45deg);
+  background: var(--paper);
+  flex-shrink: 0;
+}
+
+.dot span {
   font-family: "Chivo Mono", monospace;
-  letter-spacing: 0.12em;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink);
+  opacity: 0.78;
+  white-space: nowrap;
+}
+
+.dot img {
+  width: 72px;
+  height: 52px;
+  object-fit: cover;
+  border: 1px solid var(--line);
+  display: block;
+}
+
+.dot.has-img {
+  gap: 6px;
   cursor: pointer;
-  color: var(--muted);
 }
 
-.dossier h2 {
-  font-family: Syne, sans-serif;
-  font-size: 32px;
-  margin: 8px 0 12px;
+.dot.has-img img {
+  width: var(--plate, 148px);
+  height: var(--plate-h, 92px);
+  object-fit: cover;
+  border: 0;
+  background: #ddd7c9;
+  -webkit-mask-image:
+    linear-gradient(to right, transparent 0%, #000 14%, #000 86%, transparent 100%),
+    linear-gradient(to bottom, transparent 0%, #000 16%, #000 84%, transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to right, transparent 0%, #000 14%, #000 86%, transparent 100%),
+    linear-gradient(to bottom, transparent 0%, #000 16%, #000 84%, transparent 100%);
+  mask-composite: intersect;
 }
 
-.dossier-code {
+.dot.has-img span {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: none;
+}
+
+.dot.has-img:hover img,
+.dot.has-img:focus-visible img {
+  filter: brightness(1.06);
+}
+
+.peek {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.22s ease;
+}
+
+.peek.is-on {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.peek-mask {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  cursor: pointer;
+  background: rgba(22, 21, 19, 0.58);
+  backdrop-filter: blur(10px);
+}
+
+.peek-frame {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  max-width: min(90vw, 1320px);
+  pointer-events: none;
+}
+
+.peek-frame img {
+  display: block;
+  max-width: 88vw;
+  max-height: 78vh;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  -webkit-mask-image:
+    linear-gradient(to right, transparent 0%, #000 6%, #000 94%, transparent 100%),
+    linear-gradient(to bottom, transparent 0%, #000 7%, #000 93%, transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to right, transparent 0%, #000 6%, #000 94%, transparent 100%),
+    linear-gradient(to bottom, transparent 0%, #000 7%, #000 93%, transparent 100%);
+  mask-composite: intersect;
+}
+
+.peek-frame figcaption {
+  margin-top: 14px;
+  text-align: center;
+  font-family: "Chivo Mono", monospace;
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  color: var(--paper);
+}
+
+.dot:hover span,
+.dot:focus-visible span {
+  opacity: 1;
   color: var(--accent);
 }
 
-.dossier-meta {
-  color: var(--muted);
-  margin-bottom: 24px;
+.dot:hover i,
+.dot:focus-visible i {
+  border-color: var(--accent);
+  background: var(--accent);
 }
 
-.dossier-body {
-  line-height: 1.8;
+.holo {
+  position: absolute;
+  width: min(400px, 76vw);
+  max-height: min(70vh, 620px);
+  overflow: hidden;
+  padding: 22px 24px 26px;
+  background: rgba(231, 226, 214, 0.72);
+  border: 1px solid var(--line);
+  backdrop-filter: blur(10px);
+  z-index: 4;
+  opacity: 0;
+  pointer-events: none;
+  transform-origin: left center;
+  transition: opacity 0.28s ease;
+}
+
+.holo-resume {
+  width: min(860px, calc(100vw - 196px));
+  max-height: 78vh;
+  background: transparent;
+  border: 0;
+  backdrop-filter: none;
+  padding: 0;
+  overflow: visible;
+}
+
+.holo h2 {
+  font-family: Syne, sans-serif;
+  font-size: 28px;
+  margin: 6px 0 8px;
+}
+
+.holo-code {
+  font-family: "Chivo Mono", monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-size: 11px;
+  color: var(--accent);
+}
+
+.holo-meta {
+  font-family: "Chivo Mono", monospace;
+  letter-spacing: 0.08em;
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 16px;
+}
+
+.holo-body {
+  line-height: 1.75;
   color: #3a372f;
 }
 
-.dossier-body p + p {
+.holo-body p + p {
   margin-top: 12px;
 }
 
-.dossier a {
+.holo a {
   color: var(--accent);
+}
+
+.holo-body img,
+.float-scroll img {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  margin: 10px 0 14px;
+}
+
+.cv-split {
+  display: flex;
+  align-items: flex-start;
+  gap: 28px;
+}
+
+.cv-avatar {
+  width: 300px;
+  height: 300px;
+  object-fit: cover;
+  border-radius: 50%;
+  margin: 96px 8px 0 -72px;
+  flex-shrink: 0;
+  border: 0;
+  background: transparent;
+}
+
+.cv-right {
+  flex: 1;
+  min-width: 0;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  max-height: 78vh;
+}
+
+.float-wrap {
+  display: flex;
+  align-items: stretch;
+  gap: 16px;
+  min-height: 0;
+  flex: 1;
+}
+
+.float-wrap.is-scrollable .float-rail {
+  opacity: 1;
+}
+
+.float-rail {
+  position: relative;
+  width: 2px;
+  background: var(--line);
+  flex-shrink: 0;
+  min-height: 160px;
+  cursor: pointer;
+  opacity: 0.35;
+  overflow: visible;
+}
+
+.float-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 0;
+  background: var(--accent);
+}
+
+.float-thumb {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 10px;
+  height: 10px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  transform: translate(-50%, -50%) rotate(45deg);
+  pointer-events: none;
+}
+
+.float-scroll {
+  overflow-y: auto;
+  flex: 1;
+  min-width: 0;
+  max-height: 58vh;
+  scrollbar-width: none;
+  line-height: 1.75;
+  color: #3a372f;
+}
+
+.float-scroll p + p {
+  margin-top: 12px;
+}
+
+.float-scroll::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.cv section + section {
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--line);
+}
+
+.cv h3 {
+  font-family: "Chivo Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.cv-time {
+  display: block;
+  font-family: "Chivo Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 2px;
 }
 
 .rail {
@@ -346,7 +620,7 @@ body {
   z-index: 5;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.45s ease;
+  transition: opacity 0.18s ease;
   mix-blend-mode: multiply;
 }
 
@@ -477,7 +751,17 @@ body.is-station .boot {
   pointer-events: none;
 }
 
-body.is-gate .station,
+body.is-gate .station {
+  opacity: 1;
+  pointer-events: none;
+}
+
+body.is-gate .beacon,
+body.is-boot .beacon {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
 body.is-station .station {
   opacity: 1;
 }
@@ -492,7 +776,8 @@ body.is-station .rail {
 }
 
 body.is-station .platform-tag {
-  opacity: 1;
+  opacity: 0;
+  pointer-events: none;
 }
 
 body.is-station .station {
@@ -500,7 +785,9 @@ body.is-station .station {
 }
 
 body.is-station .beacon,
-body.is-station .platform-tag {
+body.is-station .platform-tag,
+body.is-station .holo,
+body.is-station .dot {
   pointer-events: auto;
 }
 
@@ -541,9 +828,9 @@ body.is-station .platform-tag {
     z-index: 7;
   }
 
-  .dossier {
-    width: 100%;
-    padding-bottom: 84px;
+  .holo {
+    width: calc(100vw - 24px);
+    max-height: 42vh;
   }
 
   .rail-kicker,
@@ -574,5 +861,28 @@ body.is-station .platform-tag {
 
   .rail-item {
     padding: 6px 4px;
+  }
+
+  .holo-resume {
+    width: calc(100vw - 24px);
+  }
+
+  .cv-split {
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .cv-avatar {
+    width: 96px;
+    height: 96px;
+  }
+
+  .float-scroll {
+    max-height: 32vh;
+  }
+
+  .dot.has-img img {
+    width: 88px;
+    height: 58px;
   }
 }

@@ -47,62 +47,69 @@
     </section>
 
     <section id="station" class="layer station" aria-hidden="true">
-      <p class="platform-tag">站台开放中 · 点击信标查看</p>
+      <p class="platform-tag">站台开放中 · 靠近站点时文字与图片会浮现</p>
 
-      <button class="beacon" type="button" data-id="w1" data-x="24" data-y="38">
-        <i></i><span>XY-01 本站</span>
+      <button class="beacon" type="button" data-id="resume">
+        <i></i><span>CV 简历</span>
       </button>
-      <button class="beacon" type="button" data-id="w2" data-x="62" data-y="30">
-        <i></i><span>XY-02 待发</span>
+      <button class="beacon" type="button" data-id="software">
+        <i></i><span>SW 软件</span>
       </button>
-      <button class="beacon" type="button" data-id="w3" data-x="46" data-y="58">
-        <i></i><span>XY-03 实验</span>
+      <button class="beacon" type="button" data-id="works">
+        <i></i><span>WK 作品</span>
       </button>
-      <button class="beacon" type="button" data-id="about" data-x="18" data-y="68">
-        <i></i><span>关于</span>
+      <button class="beacon" type="button" data-id="unity">
+        <i></i><span>UN Unity</span>
       </button>
-      <button class="beacon" type="button" data-id="contact" data-x="74" data-y="60">
-        <i></i><span>联络</span>
+      <button class="beacon" type="button" data-id="tools">
+        <i></i><span>TL 工具</span>
+      </button>
+      <button class="beacon" type="button" data-id="contact">
+        <i></i><span>CT 联络</span>
       </button>
     </section>
 
-    <aside id="dossier" class="dossier" hidden>
-      <button class="dossier-close" type="button" id="close">关闭</button>
-      <p class="dossier-code" id="d-code"></p>
-      <h2 id="d-title"></h2>
-      <p class="dossier-meta" id="d-meta"></p>
-      <div class="dossier-body" id="d-body"></div>
-    </aside>
-
     <nav class="rail" id="rail" aria-label="站台导航">
       <p class="rail-kicker">Index</p>
-      <p class="rail-now" id="rail-now">00 入口</p>
+      <p class="rail-now" id="rail-now">00 本站入口</p>
       <div class="rail-list">
         <button type="button" class="rail-item" data-go="gate">
-          <i></i><em>00</em><span>入口</span>
+          <i></i><em>00</em><span>本站入口</span>
         </button>
         <span class="rail-seg" data-from="gate" aria-hidden="true"></span>
-        <button type="button" class="rail-item" data-id="w1">
-          <i></i><em>01</em><span>本站</span>
+        <button type="button" class="rail-item" data-id="resume">
+          <i></i><em>CV</em><span>个人简历</span>
         </button>
-        <span class="rail-seg" data-from="w1" aria-hidden="true"></span>
-        <button type="button" class="rail-item" data-id="w2">
-          <i></i><em>02</em><span>待发</span>
+        <span class="rail-seg" data-from="resume" aria-hidden="true"></span>
+        <button type="button" class="rail-item" data-id="software">
+          <i></i><em>SW</em><span>常用软件</span>
         </button>
-        <span class="rail-seg" data-from="w2" aria-hidden="true"></span>
-        <button type="button" class="rail-item" data-id="w3">
-          <i></i><em>03</em><span>实验</span>
+        <span class="rail-seg" data-from="software" aria-hidden="true"></span>
+        <button type="button" class="rail-item" data-id="works">
+          <i></i><em>WK</em><span>个人作品</span>
         </button>
-        <span class="rail-seg" data-from="w3" aria-hidden="true"></span>
-        <button type="button" class="rail-item" data-id="about">
-          <i></i><em>AB</em><span>关于</span>
+        <span class="rail-seg" data-from="works" aria-hidden="true"></span>
+        <button type="button" class="rail-item" data-id="unity">
+          <i></i><em>UN</em><span>Unity效果</span>
         </button>
-        <span class="rail-seg" data-from="about" aria-hidden="true"></span>
+        <span class="rail-seg" data-from="unity" aria-hidden="true"></span>
+        <button type="button" class="rail-item" data-id="tools">
+          <i></i><em>TL</em><span>工具研发</span>
+        </button>
+        <span class="rail-seg" data-from="tools" aria-hidden="true"></span>
         <button type="button" class="rail-item" data-id="contact">
-          <i></i><em>CT</em><span>联络</span>
+          <i></i><em>CT</em><span>联系方式</span>
         </button>
       </div>
     </nav>
+
+    <div id="peek" class="peek" hidden>
+      <button class="peek-mask" type="button" aria-label="关闭作品"></button>
+      <figure class="peek-frame">
+        <img id="peek-img" alt="" />
+        <figcaption id="peek-cap"></figcaption>
+      </figure>
+    </div>
 
     <script src="js/main.js"></script>
   </body>
