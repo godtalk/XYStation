@@ -16,6 +16,7 @@ export const cam = {
 
 export const runtime = {
   ready: false,
+  boot: 0,
   lastTouchY: 0,
   phase: "is-boot",
 };

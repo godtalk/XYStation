@@ -11,7 +11,8 @@
       href="https://fonts.googleapis.com/css2?family=Chivo+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;500;700&family=Syne:wght@700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="css/style.css?v=packs" />
+    <link rel="preload" as="video" href="mp4/MShader.mp4?v=fs1" />
   </head>
   <body class="is-boot">
     <canvas id="view" aria-hidden="true"></canvas>
@@ -33,8 +34,7 @@
 
     <section id="boot" class="layer boot">
       <div class="boot-core">
-        <span class="mark lg" aria-hidden="true"></span>
-        <p class="boot-text">正在进站......</p>
+        <p class="boot-text">正在进站</p>
         <p class="boot-pct" id="pct">0%</p>
       </div>
     </section>
@@ -109,10 +109,12 @@
       <button class="peek-mask" type="button" aria-label="关闭作品"></button>
       <figure class="peek-frame">
         <img id="peek-img" alt="" />
+        <video id="peek-video" playsinline controls preload="auto"></video>
+        <p class="peek-wait" id="peek-wait" hidden>片子进站加载中</p>
         <figcaption id="peek-cap"></figcaption>
       </figure>
     </div>
 
-    <script type="module" src="js/main.js"></script>
+    <script type="module" src="js/main.js?v=soft13"></script>
   </body>
 </html>

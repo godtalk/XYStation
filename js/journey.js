@@ -8,7 +8,7 @@ import {
   stopByKey,
 } from "./data.js";
 import { poseAt } from "./camera.js";
-import { layoutBeacons } from "./holo.js";
+import { layoutBeacons } from "./holo.js?v=soft13";
 import { clamp } from "./util.js";
 
 const body = document.body;
@@ -19,6 +19,7 @@ const holdState = {
   resume: { count: 0, armed: true },
   software: { count: 0, armed: true },
   works: { count: 0, armed: true },
+  tools: { count: 0, armed: true },
 };
 
 export function setPhase(name) {
@@ -29,21 +30,14 @@ export function setPhase(name) {
   body.classList.add(name);
   document.getElementById("gate").setAttribute("aria-hidden", name === "is-boot");
   document.getElementById("station").setAttribute("aria-hidden", name === "is-boot");
-  if (name === "is-gate" && prev !== "is-gate") {
+  if (name === "is-gate" && prev !== "is-gate" && title) {
     title.classList.remove("is-pop");
-    void title.offsetWidth;
-    title.classList.add("is-pop");
   }
 }
 
 export function applyProgress(t) {
   const p = t / PATH_MAX;
   const fly = clamp(p / 0.09, 0, 1);
-  const punch = fly * fly;
-  title.style.transform = `translateZ(${punch * 2200}px) scale(${1 + punch * 6.2}) skewX(${punch * -10}deg)`;
-  title.style.letterSpacing = `${-0.05 - punch * 0.06}em`;
-  title.style.filter = punch < 0.04 ? "none" : `contrast(${1 + punch * 0.6}) blur(${punch * 1.4}px)`;
-  title.style.opacity = String(1 - fly);
   gateUi.forEach((el) => {
     const fade = clamp(1 - p / 0.045, 0, 1);
     el.style.opacity = String(fade);

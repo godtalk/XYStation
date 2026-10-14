@@ -4,6 +4,7 @@
   --muted: #6f6a60;
   --line: #b7b09f;
   --accent: #c45a28;
+  --hint-bottom: 72px;
 }
 
 * {
@@ -165,27 +166,40 @@ body {
   z-index: 4;
 }
 
+.boot {
+  z-index: 4;
+  pointer-events: none;
+}
+
 .boot-core {
+  position: absolute;
+  left: 50%;
+  bottom: var(--hint-bottom);
+  transform: translateX(-50%);
   text-align: center;
 }
 
 .boot-text {
-  margin-top: 22px;
+  margin: 0 0 10px;
+  color: var(--muted);
 }
 
 .boot-pct {
-  margin-top: 8px;
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: 0.12em;
   color: var(--muted);
 }
 
 .fly-title {
   font-family: Syne, sans-serif;
-  font-size: clamp(64px, 12vw, 140px);
+  font-size: clamp(72px, 13vw, 210px);
   line-height: 0.82;
   letter-spacing: -0.05em;
   margin: 18px 0 48px;
-  transform: translateZ(0) scale(1);
-  will-change: transform, opacity;
+  visibility: hidden;
   pointer-events: none;
 }
 
@@ -232,11 +246,22 @@ body {
   color: var(--accent);
 }
 
+.gate .kicker {
+  position: absolute;
+  top: 88px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
 .gate-ui {
   transition: opacity 0.55s ease, transform 0.55s ease;
 }
 
 #enter {
+  position: absolute;
+  left: 50%;
+  bottom: var(--hint-bottom);
+  transform: translateX(-50%);
   background: none;
   border: 0;
   cursor: pointer;
@@ -337,6 +362,21 @@ body {
   }
 }
 
+.pack-label {
+  position: absolute;
+  top: 86px;
+  margin: 0;
+  pointer-events: none;
+  z-index: 6;
+  font-family: "Chivo Mono", monospace;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  font-size: 12px;
+  color: var(--accent);
+  text-align: center;
+  opacity: 0;
+}
+
 .dot {
   position: absolute;
   left: 50%;
@@ -373,7 +413,8 @@ body {
   white-space: nowrap;
 }
 
-.dot img {
+.dot img,
+.dot video {
   width: 72px;
   height: 52px;
   object-fit: cover;
@@ -386,9 +427,14 @@ body {
   cursor: pointer;
 }
 
-.dot.has-img img {
+.dot.has-img img,
+.dot.has-img video {
   width: var(--plate, 148px);
   height: var(--plate-h, 92px);
+  max-width: var(--plate, 148px);
+  max-height: var(--plate-h, 92px);
+  min-width: 0;
+  min-height: 0;
   object-fit: cover;
   border: 0;
   background: #ddd7c9;
@@ -401,18 +447,28 @@ body {
 }
 
 .dot.has-img:hover img,
-.dot.has-img:focus-visible img {
+.dot.has-img:hover video,
+.dot.has-img:focus-visible img,
+.dot.has-img:focus-visible video {
   filter: brightness(1.06);
 }
 
 .dot-work.has-img {
   gap: 8px;
+  width: var(--plate, 220px);
+  max-width: var(--plate, 220px);
   transform-style: preserve-3d;
 }
 
-.dot-work.has-img img {
-  width: var(--plate, 220px);
-  height: var(--plate-h, 140px);
+.dot-work.has-img img,
+.dot-work.has-img video {
+  width: var(--plate, 220px) !important;
+  height: var(--plate-h, 140px) !important;
+  max-width: var(--plate, 220px) !important;
+  max-height: var(--plate-h, 140px) !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  flex: 0 0 auto;
   object-fit: cover;
   background: #cfc8b8;
   border: 0;
@@ -429,7 +485,7 @@ body {
 }
 
 .dot-soft.has-img {
-  gap: 12px;
+  gap: clamp(6px, calc(var(--soft, 178px) * 0.07), 16px);
   cursor: default;
 }
 
@@ -445,7 +501,7 @@ body {
 }
 
 .dot-soft.has-img span {
-  font-size: 16px;
+  font-size: var(--soft-label, 16px);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   opacity: 0.78;
@@ -458,7 +514,7 @@ body {
 
 .dot-soft.has-img:hover img,
 .dot-soft.has-img:focus-visible img {
-  transform: translateY(-8px);
+  transform: translateY(calc(var(--soft, 178px) * -0.045));
   filter: brightness(1.05);
 }
 
@@ -488,8 +544,7 @@ body {
   border: 0;
   cursor: pointer;
   opacity: 0;
-  background: rgba(22, 21, 19, 0.58);
-  backdrop-filter: blur(10px);
+  background: rgba(22, 21, 19, 0.72);
   transition: opacity 0.36s ease;
 }
 
@@ -508,11 +563,77 @@ body {
   will-change: left, top, width, height;
 }
 
-.peek-frame img {
+.peek-frame img,
+.peek-frame video {
   display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  outline: none;
+}
+
+.peek-frame.has-video {
+  pointer-events: auto;
+  overflow: visible;
+  background: #111;
+}
+
+.peek-frame.has-video video:not([hidden]) {
+  position: absolute;
+  inset: 0;
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  object-fit: contain;
+  background: #111;
+}
+
+.peek-wait {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  font-family: "Chivo Mono", monospace;
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  color: var(--paper);
+  background: rgba(12, 12, 12, 0.55);
+  pointer-events: none;
+}
+
+.peek-wait[hidden] {
+  display: none !important;
+}
+
+#clip-pool {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 2px;
+  height: 2px;
+  overflow: hidden;
+  opacity: 0.02;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.dot-work .peek-hole {
+  display: block;
+  width: var(--plate, 220px);
+  height: var(--plate-h, 140px);
+  flex: 0 0 auto;
+  background: #111;
+}
+
+.peek-frame video[hidden],
+.peek-frame img[hidden] {
+  display: none !important;
 }
 
 .peek-frame figcaption {
@@ -531,7 +652,9 @@ body {
   transition: opacity 0.22s ease;
 }
 
-.dot-work.is-zooming img {
+.dot-work.is-zooming img,
+.dot-work.is-zooming video,
+.dot-work.is-zooming .peek-hole {
   opacity: 0;
 }
 
@@ -615,7 +738,9 @@ body {
 }
 
 .holo-body img,
-.float-scroll img {
+.holo-body video,
+.float-scroll img,
+.float-scroll video {
   display: block;
   width: 100%;
   max-width: 100%;
@@ -1003,6 +1128,7 @@ body {
 body.is-boot .gate,
 body.is-boot .station,
 body.is-boot .rail,
+body.is-boot .hud,
 body.is-gate .boot,
 body.is-station .boot {
   opacity: 0;
@@ -1057,7 +1183,7 @@ body.is-station .dot {
 
 @media (max-width: 720px) {
   .fly-title {
-    font-size: 56px;
+    font-size: 64px;
   }
 
   .beacon span {
@@ -1153,7 +1279,8 @@ body.is-station .dot {
     max-height: 32vh;
   }
 
-  .dot.has-img img {
+  .dot.has-img img,
+  .dot.has-img video {
     width: 88px;
     height: 58px;
   }

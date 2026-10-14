@@ -1,11 +1,11 @@
 import { cam, runtime } from "./state.js";
 import { PATH_MAX, WHEEL_STEP, TOUCH_SCALE, KEY_STEP, ENTER_STEP } from "./data.js";
 import { clamp } from "./util.js";
-import { resizeView, spawnDust, tickDust, drawWorld } from "./dust.js";
+import { resizeView, spawnDust, tickDust, drawWorld } from "./dust.js?v=boot-form4";
 import { resizeVortex, drawVortex } from "./vortex.js";
-import { buildHolos, layoutBeacons } from "./holo.js";
-import { buildFields } from "./fields.js";
-import { applyProgress, setPhase, nudge, jumpTo, holdStationWheel, bindNav } from "./journey.js";
+import { buildHolos, layoutBeacons } from "./holo.js?v=soft13";
+import { buildFields } from "./fields.js?v=soft13";
+import { applyProgress, setPhase, nudge, jumpTo, holdStationWheel, bindNav } from "./journey.js?v=soft13";
 import { closePeek } from "./peek.js";
 
 const body = document.body;
@@ -18,16 +18,28 @@ function resize() {
   resizeVortex();
 }
 
-function boot() {
+async function boot() {
+  runtime.boot = 0;
+  if (document.fonts?.ready) {
+    try {
+      await document.fonts.ready;
+    } catch {
+      /* keep going */
+    }
+  }
+  spawnDust();
   const start = performance.now();
-  const duration = 1800;
+  const duration = 2200;
   const step = (now) => {
     const t = Math.min(1, (now - start) / duration);
-    pct.textContent = `${Math.round((1 - (1 - t) ** 3) * 100)}%`;
+    const eased = 1 - (1 - t) ** 3;
+    runtime.boot = eased;
+    pct.textContent = `${Math.round(eased * 100)}%`;
     if (t < 1) {
       requestAnimationFrame(step);
       return;
     }
+    runtime.boot = 1;
     runtime.ready = true;
     setPhase("is-gate");
   };
@@ -68,11 +80,11 @@ buildFields();
 layoutBeacons();
 tickClock();
 setInterval(tickClock, 1000);
-title.addEventListener("animationend", (event) => {
-  if (event.animationName === "title-pop") title.classList.remove("is-pop");
-});
 boot();
 loop();
+if (document.fonts?.ready) {
+  document.fonts.ready.then(() => spawnDust()).catch(() => {});
+}
 
 window.addEventListener("resize", () => {
   resize();

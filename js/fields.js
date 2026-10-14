@@ -1,10 +1,44 @@
 import { cam, runtime } from "./state.js";
-import { beaconWorld, fields, holoVisibility, stopByKey } from "./data.js";
-import { clamp, hash01 } from "./util.js";
+import { beaconWorld, fields, holoVisibility, stopByKey } from "./data.js?v=packs";
+import { clamp, hash01, isVideoSrc, mediaURL, screenFit } from "./util.js";
 import { openPeek } from "./peek.js";
 
 const station = document.getElementById("station");
 const fieldNodes = [];
+const primed = new Set();
+
+function clipPool() {
+  let pool = document.getElementById("clip-pool");
+  if (pool) return pool;
+  pool = document.createElement("div");
+  pool.id = "clip-pool";
+  pool.setAttribute("aria-hidden", "true");
+  document.body.appendChild(pool);
+  return pool;
+}
+
+function primeVideo(url) {
+  if (!url || primed.has(url)) return;
+  primed.add(url);
+  const link = document.createElement("link");
+  link.rel = "preload";
+  link.as = "video";
+  link.href = url;
+  document.head.appendChild(link);
+}
+
+function warmClip(clip, url) {
+  clip.preload = "auto";
+  clip.muted = true;
+  clip.loop = true;
+  clip.playsInline = true;
+  clip.setAttribute("playsinline", "");
+  clip.setAttribute("preload", "auto");
+  clip.src = url;
+  const pool = clipPool();
+  pool.appendChild(clip);
+  clip.load();
+}
 
 function scatterAround(origin, count, spread, seed) {
   const pts = [];
@@ -33,20 +67,53 @@ function buildFields() {
       const pos = pts[i] || origin;
       const el = document.createElement("button");
       el.type = "button";
-      el.className = `dot ${group === "works" ? "dot-work" : "dot-soft"}`;
+      el.className = `dot ${group === "software" ? "dot-soft" : "dot-work"}`;
       el.dataset.group = group;
       const size = 0.7 + hash01(i * 9.1 + g) * 0.9;
       el.style.setProperty("--dot", `${8 + size * 8}px`);
       el.style.setProperty("--plate", `${96 + size * 54}px`);
       el.style.setProperty("--plate-h", `${60 + size * 32}px`);
-      if (item.img) el.classList.add("has-img");
-      const src = encodeURI(item.img || "");
-      el.innerHTML = `${item.img ? `<img src="${src}" alt="${item.name || "作品"}">` : "<i></i>"}${item.name ? `<span>${item.name}</span>` : ""}`;
-      if (item.img && group === "works") {
-        el.addEventListener("click", () => openPeek(src, item.name, el));
+      const videoSrc = item.video || (isVideoSrc(item.img) ? item.img : "");
+      const poster = item.poster || (!videoSrc && item.img ? item.img : "");
+      const src = mediaURL(videoSrc || poster || "");
+      if (src) el.classList.add("has-img");
+      if (videoSrc) el.classList.add("has-video");
+      if (poster && !videoSrc) {
+        el.innerHTML = `<img src="${mediaURL(poster)}" alt="${item.name || "作品"}">${item.name ? `<span>${item.name}</span>` : ""}`;
+      } else if (videoSrc) {
+        const clip = document.createElement("video");
+        clip.muted = true;
+        clip.loop = true;
+        clip.playsInline = true;
+        if (poster) clip.poster = mediaURL(poster);
+        if (item.name) {
+          const label = document.createElement("span");
+          label.textContent = item.name;
+          el.appendChild(label);
+        }
+        primeVideo(src);
+        warmClip(clip, src);
+        el.insertBefore(clip, el.firstChild);
+        el.addEventListener("pointerenter", () => {
+          if (clip.parentElement !== el) return;
+          clip.play().catch(() => {});
+        });
+        el.addEventListener("pointerleave", () => {
+          if (clip.parentElement !== el) return;
+          clip.pause();
+          clip.currentTime = 0;
+        });
+      } else {
+        el.innerHTML = `<i></i>${item.name ? `<span>${item.name}</span>` : ""}`;
+      }
+      if (src && group !== "software") {
+        el.addEventListener("click", () => openPeek(src, item.name, el, Boolean(videoSrc)));
       }
       station.appendChild(el);
-      fieldNodes.push({ el, group, x: pos[0], y: pos[1], z: pos[2], size, at: item.at, scale: item.s || 1 });
+      fieldNodes.push({
+        el, group, x: pos[0], y: pos[1], z: pos[2], size,
+        at: item.at, scale: item.s || 1, pack: item.pack || "",
+      });
     });
   });
 }
@@ -56,73 +123,188 @@ function layoutFields() {
   const navW = innerWidth >= 720 ? 220 : 12;
   const areaW = innerWidth - navW - 40;
   const areaH = innerHeight - 110;
-  ["software", "works"].forEach((group) => {
+  ["software", "works", "tools"].forEach((group) => {
     const vis = runtime.phase === "is-station" ? holoVisibility(group, cam.progress) : 0;
     const nodes = fieldNodes.filter((node) => node.group === group);
     if (group === "software") layoutSoftware(nodes, vis, now, navW, areaW, areaH);
-    else layoutWorks(nodes, vis, navW, areaW, areaH);
+    else layoutWall(group, nodes, vis, navW, areaW, areaH);
   });
 }
 
-function layoutWorks(nodes, vis, navW, areaW, areaH) {
-  const rows = areaW < 640 ? 3 : 2;
-  const cols = Math.ceil(nodes.length / rows);
-  const gap = areaW < 640 ? 14 : 24;
-  const cellH = Math.min(areaH / rows - 36, rows === 2 ? 268 : 176);
-  const cellW = cellH * 1.58;
-  const wallW = cols * (cellW + gap) - gap;
-  const wallH = rows * (cellH + gap + 20) - gap;
-  const viewL = navW + 28;
-  const viewW = areaW - 12;
-  const ox = viewL;
-  const oy = innerHeight * 0.5 - wallH * 0.5;
-  const stop = stopByKey("works");
-  const start = stop.at;
-  const end = stop.until || start + 3;
-  const u = clamp((cam.progress - start) / Math.max(0.001, end - start), 0, 1);
-  const panMax = Math.max(0, wallW - viewW * 0.62);
-  const pan = panMax * u + cam.lookX * 22;
-  const focusX = viewL + viewW * 0.42;
+const PACK_LABEL = {
+  scene: "场景原画",
+  war: "战场",
+  bug: "蚂蚱",
+  qf: "QF",
+  slg: "SLG",
+};
 
-  nodes.forEach((node, n) => {
-    if (vis < 0.08) {
+function packLabelEl() {
+  let el = document.getElementById("pack-label");
+  if (el) return el;
+  el = document.createElement("p");
+  el.id = "pack-label";
+  el.className = "pack-label";
+  station.appendChild(el);
+  return el;
+}
+
+function splitPages(nodes, perPage) {
+  const bags = [];
+  nodes.forEach((node) => {
+    const id = node.pack || "_";
+    let bag = bags.find((item) => item.id === id);
+    if (!bag) {
+      bag = { id, label: PACK_LABEL[id] || "", nodes: [] };
+      bags.push(bag);
+    }
+    bag.nodes.push(node);
+  });
+  const pages = [];
+  bags.forEach((bag) => {
+    for (let i = 0; i < bag.nodes.length; i += perPage) {
+      pages.push({
+        id: bag.id,
+        label: bag.label,
+        nodes: bag.nodes.slice(i, i + perPage),
+      });
+    }
+  });
+  return pages.length ? pages : [{ id: "_", label: "", nodes }];
+}
+
+function paintCard(node, x, y, cellW, cellH, fade, scale, yaw) {
+  const pw = Math.round(cellW);
+  const ph = Math.round(cellH);
+  node.el.style.setProperty("--plate", `${pw}px`);
+  node.el.style.setProperty("--plate-h", `${ph}px`);
+  node.el.style.width = `${pw}px`;
+  const media = node.el.querySelector("img, video, .peek-hole");
+  if (media) {
+    media.style.width = `${pw}px`;
+    media.style.height = `${ph}px`;
+    media.style.maxWidth = `${pw}px`;
+    media.style.maxHeight = `${ph}px`;
+  }
+  node.el.style.left = `${x}px`;
+  node.el.style.top = `${y}px`;
+  node.el.style.opacity = String(fade);
+  node.el.style.pointerEvents = fade > 0.28 ? "auto" : "none";
+  node.el.style.zIndex = String(8 + Math.round(scale * 12));
+  node.el.style.transform = `translate(-50%, -50%) rotateY(${yaw}deg) scale(${scale})`;
+  node.screen = { x, y, vis: fade, depth: scale };
+}
+
+function placePage(page, cx, cy, cellW, cellH, gap, cols, fade, shiftX, lookX) {
+  const n = page.nodes.length;
+  if (!n || fade < 0.04) {
+    page.nodes.forEach((node) => {
       node.el.style.opacity = "0";
       node.el.style.pointerEvents = "none";
       node.screen = null;
-      return;
-    }
-    const col = Math.floor(n / rows);
-    const row = n % rows;
-    const x = ox + col * (cellW + gap) + cellW * 0.5 - pan;
-    const y = oy + row * (cellH + gap + 18) + cellH * 0.5;
-    const dx = (x - focusX) / Math.max(220, viewW);
-    const dist = Math.abs(dx);
-    const on = x > -cellW && x < innerWidth + cellW;
-    const scale = clamp(1.06 - dist * 0.48, 0.58, 1.1);
-    const yaw = clamp(-dx * 38, -46, 46);
-    const z = (1.05 - dist) * 90;
-    const fade = vis * (on ? clamp(1.12 - dist * 0.72, 0.16, 1) : 0);
-    node.el.style.setProperty("--plate", `${Math.round(cellW)}px`);
-    node.el.style.setProperty("--plate-h", `${Math.round(cellH)}px`);
-    node.el.style.left = `${x}px`;
-    node.el.style.top = `${y}px`;
-    node.el.style.opacity = String(fade);
-    node.el.style.pointerEvents = fade > 0.28 ? "auto" : "none";
-    node.el.style.zIndex = String(8 + Math.round(scale * 12));
-    node.el.style.transform = `translate(-50%, -50%) translateZ(${z}px) rotateY(${yaw}deg) scale(${scale})`;
-    node.screen = { x, y, vis: fade, depth: scale };
+    });
+    return;
+  }
+  const colsUsed = Math.max(1, Math.min(cols, n));
+  const rowsUsed = Math.ceil(n / colsUsed);
+  const pageW = colsUsed * cellW + (colsUsed - 1) * gap;
+  const pageH = rowsUsed * (cellH + 22) + (rowsUsed - 1) * gap;
+  const ox = cx - pageW / 2 + shiftX + lookX * 12;
+  const oy = cy - pageH / 2;
+  const scale = 0.92 + fade * 0.08;
+  page.nodes.forEach((node, i) => {
+    const col = i % colsUsed;
+    const row = Math.floor(i / colsUsed);
+    const x = ox + col * (cellW + gap) + cellW / 2;
+    const y = oy + row * (cellH + gap + 22) + cellH / 2;
+    paintCard(node, x, y, cellW, cellH, fade, scale, lookX * -6);
   });
+}
+
+function layoutWall(group, nodes, vis, navW, areaW, areaH) {
+  if (!nodes.length) return;
+  const useLabel = group === "works";
+  const label = useLabel ? packLabelEl() : null;
+  const padL = navW + 48;
+  const padR = 56;
+  const viewW = Math.max(280, innerWidth - padL - padR);
+  const viewH = Math.max(220, areaH - 8);
+  const gap = viewW < 700 ? 14 : 24;
+  const cols = viewW < 640 ? 2 : viewW < 1180 ? 3 : 4;
+  const rows = 2;
+  let cellW = (viewW - gap * (cols - 1)) / cols;
+  let cellH = cellW / 1.58;
+  const maxH = (viewH - 52 - gap) / rows;
+  if (cellH > maxH) {
+    cellH = maxH;
+    cellW = cellH * 1.58;
+  }
+  const perPage = cols * rows;
+  const pages = splitPages(nodes, perPage);
+  const stop = stopByKey(group);
+  const start = stop.at;
+  const end = stop.until || start + 3;
+  const u = clamp((cam.progress - start) / Math.max(0.001, end - start), 0, 1);
+  const nPages = pages.length;
+  const f = nPages <= 1 ? 0 : u * (nPages - 1);
+  const index = Math.min(nPages - 1, Math.floor(f + 1e-4));
+  const mix = nPages <= 1 ? 0 : clamp(f - index, 0, 1);
+  const ease = mix * mix * (3 - 2 * mix);
+  const cx = padL + viewW / 2;
+  const cy = innerHeight * 0.52;
+  const shown = new Set();
+
+  if (vis < 0.08) {
+    nodes.forEach((node) => {
+      node.el.style.opacity = "0";
+      node.el.style.pointerEvents = "none";
+      node.screen = null;
+    });
+    if (label) label.style.opacity = "0";
+    return;
+  }
+
+  const cur = pages[index];
+  const next = pages[index + 1];
+  placePage(cur, cx, cy, cellW, cellH, gap, cols, vis * (1 - ease), -ease * 56, cam.lookX);
+  cur.nodes.forEach((node) => shown.add(node));
+  if (next) {
+    placePage(next, cx, cy, cellW, cellH, gap, cols, vis * ease, (1 - ease) * 56, cam.lookX);
+    next.nodes.forEach((node) => shown.add(node));
+  }
+  nodes.forEach((node) => {
+    if (shown.has(node)) return;
+    node.el.style.opacity = "0";
+    node.el.style.pointerEvents = "none";
+    node.screen = null;
+  });
+
+  if (label) {
+    const title = (ease > 0.55 && next ? next.label : cur.label) || "";
+    label.textContent = title;
+    label.style.left = `${padL}px`;
+    label.style.width = `${viewW}px`;
+    label.style.opacity = title && vis > 0.35 ? String(vis) : "0";
+  }
 }
 
 let softClock = 0;
 
 function layoutSoftware(nodes, vis, now, navW, areaW, areaH) {
-  const boardW = Math.min(areaW * 0.86, 1280);
-  const boardH = Math.min(areaH * 0.66, 620);
-  const ox = navW + 20 + (areaW - boardW) * 0.5;
-  const oy = (innerHeight - boardH) * 0.46;
   const compact = areaW < 640;
-  const base = compact ? 110 : Math.max(134, Math.min(178, boardW * 0.142));
+  const boardW = areaW * (compact ? 0.94 : 0.88);
+  const boardH = areaH * (compact ? 0.82 : 0.78);
+  const ox = navW + 20 + (areaW - boardW) * 0.5;
+  const oy = (innerHeight - boardH) * 0.48;
+  const cell = Math.min(boardW / 4.15, boardH / 2.3);
+  const dens = screenFit().density;
+  const boost = compact
+    ? 1.6
+    : 1.6 + (1.3 - 1.6) * clamp((dens - 0.55) / 0.8, 0, 1);
+  const base = compact
+    ? clamp(cell * 0.78 * boost, 72, 230)
+    : clamp(cell * 0.56 * boost, 110, 560);
+  const boardKey = `${Math.round(boardW)}:${Math.round(boardH)}:${Math.round(base)}`;
   const compactAt = [
     [0.28, 0.14], [0.72, 0.14], [0.28, 0.38], [0.72, 0.38],
     [0.28, 0.62], [0.72, 0.62], [0.28, 0.86], [0.72, 0.86],
@@ -136,9 +318,11 @@ function layoutSoftware(nodes, vis, now, navW, areaW, areaH) {
     const s = compact ? 1 : (node.scale || 1);
     const size = Math.round(base * s);
     node.el.style.setProperty("--soft", `${size}px`);
-    const rad = size * 0.5 + 24;
+    node.el.style.setProperty("--soft-label", `${clamp(size * 0.09, 10, 22)}px`);
+    const rad = size * 0.5 + size * 0.18;
     const slot = compact ? compactAt[n] : (node.at || [0.5, 0.5]);
-    if (!node.body) {
+    if (!node.body || node.boardKey !== boardKey) {
+      node.boardKey = boardKey;
       const ang = hash01(n * 7.3 + 2) * Math.PI * 2;
       const spd = 0.08 + hash01(n * 3.1) * 0.06;
       node.body = {
@@ -200,7 +384,7 @@ function layoutSoftware(nodes, vis, now, navW, areaW, areaH) {
     const b = node.body;
     const wave = Math.sin(now * b.zf + b.ph);
     b.scale = 0.82 + (wave * 0.5 + 0.5) * 0.4;
-    b.r = (Math.round(base * (compact ? 1 : node.scale || 1)) * 0.5 + 38) * b.scale;
+    b.r = (Math.round(base * (compact ? 1 : node.scale || 1)) * 0.68) * b.scale;
   });
 
   for (let i = 0; i < live.length; i += 1) {

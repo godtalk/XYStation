@@ -26,7 +26,7 @@ export function poseAt(t) {
   cam.ry = sample(ryk, t) * deg;
 }
 
-export function project(wx, wy, wz) {
+export function project(wx, wy, wz, lookScale = 1) {
   let x = wx * SPACE - cam.x;
   let y = wy * SPACE - cam.y;
   let z = wz * SPACE - cam.z;
@@ -38,8 +38,8 @@ export function project(wx, wy, wz) {
   const sx = Math.sin(-cam.rx);
   const y1 = y * cx - z1 * sx;
   const z2 = y * sx + z1 * cx;
-  const lx = -cam.lookY * 0.32;
-  const ly = -cam.lookX * 0.22;
+  const lx = -cam.lookY * 0.32 * lookScale;
+  const ly = -cam.lookX * 0.22 * lookScale;
   const clx = Math.cos(-lx);
   const slx = Math.sin(-lx);
   const y2 = y1 * clx - z2 * slx;

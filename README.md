@@ -8,7 +8,13 @@ GodTalk 的个人作品站。纯静态页面，部署到 GitHub Pages。
 
 ## 本地预览
 
-用浏览器打开 `index.html`，或在目录里启动任意静态服务器。
+不要用 `python -m http.server`：它不支持 HTTP Range，浏览器播 MP4 会卡灰框。本地请用：
+
+```bash
+python tools/serve.py
+```
+
+然后打开 http://127.0.0.1:8765/
 
 ## 推送到 GitHub
 

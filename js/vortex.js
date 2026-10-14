@@ -1,5 +1,5 @@
 import { cam } from "./state.js";
-import { clamp, hash01 } from "./util.js";
+import { clamp, hash01, screenFit } from "./util.js";
 
 const ash = document.getElementById("ash");
 const ashGl = ash.getContext("webgl", {
@@ -35,6 +35,7 @@ uniform float uRadius;
 uniform float uTime;
 uniform float uVis;
 uniform float uDpr;
+uniform float uScale;
 varying float vAlpha;
 
 vec2 flowStep(vec2 U, float i, float t, float ox) {
@@ -80,8 +81,8 @@ void main() {
   float core = mix(0.7, 1.0, smoothstep(0.5, 0.05, abs(across - 0.5)));
   float ends = smoothstep(0.0, 0.07, along) * smoothstep(1.0, 0.93, along);
   vAlpha = core * ends * uVis * (0.21 + 0.44 * w) * (0.48 + 0.45 * aSeed) * mix(0.3, 1.0, reach);
-  float sizeTaper = mix(0.5, 1.1, reach);
-  gl_PointSize = clamp((1.15 + w * 1.9) * sizeTaper * uDpr * 1.2, 0.42, 6.0);
+  float sizeTaper = mix(0.55, 1.2, reach);
+  gl_PointSize = clamp((1.25 + w * 2.2) * sizeTaper * uDpr * 1.5 * uScale, 0.55, 14.0);
   vec2 screen = p * uRadius + uOrigin;
   gl_Position = vec4(
     screen.x / uResolution.x * 2.0,
@@ -116,7 +117,12 @@ function compileShader(type, source) {
 }
 
 function initVortex() {
-  if (!ashGl || vortex.program) return;
+  if (!ashGl) return;
+  if (vortex.program && vortex.shaderRev === 4) return;
+  if (vortex.program) {
+    ashGl.deleteProgram(vortex.program);
+    vortex.program = null;
+  }
   const vert = compileShader(ashGl.VERTEX_SHADER, VORTEX_VERT);
   const frag = compileShader(ashGl.FRAGMENT_SHADER, VORTEX_FRAG);
   if (!vert || !frag) return;
@@ -134,6 +140,8 @@ function initVortex() {
   vortex.time = ashGl.getUniformLocation(program, "uTime");
   vortex.vis = ashGl.getUniformLocation(program, "uVis");
   vortex.dpr = ashGl.getUniformLocation(program, "uDpr");
+  vortex.scale = ashGl.getUniformLocation(program, "uScale");
+  vortex.shaderRev = 4;
   vortex.aUv = ashGl.getAttribLocation(program, "aUv");
   vortex.aSeed = ashGl.getAttribLocation(program, "aSeed");
   ashGl.enable(ashGl.BLEND);
@@ -145,10 +153,11 @@ function buildVortex() {
   if (!ashGl) return;
   initVortex();
   if (!vortex.program) return;
-  const span = Math.min(innerWidth, innerHeight) * 0.92;
-  const segments = Math.round(clamp(span / 1.55, 200, 460));
-  if (vortex.segments === segments && vortex.rev === 3) return;
-  vortex.rev = 3;
+  const { density, short } = screenFit();
+  const span = short * 0.92;
+  const segments = Math.round(clamp((span / 1.55) * density, 160, 580));
+  if (vortex.segments === segments && vortex.rev === 4) return;
+  vortex.rev = 4;
   vortex.segments = segments;
   const count = segments * segments;
   vortex.count = count;
@@ -203,9 +212,12 @@ export function drawVortex(now) {
     cam.lookX * 36 * dpr,
     (innerHeight * -0.02 + cam.lookY * 24) * dpr,
   );
-  ashGl.uniform1f(vortex.radius, Math.min(innerWidth, innerHeight) * 0.46 * dpr);
+  const fit = screenFit();
+  const radius = fit.short * 0.66 + (fit.long - fit.short) * 0.05;
+  ashGl.uniform1f(vortex.radius, radius * dpr);
   ashGl.uniform1f(vortex.time, (now || 0) / 1000);
   ashGl.uniform1f(vortex.vis, vis);
   ashGl.uniform1f(vortex.dpr, dpr);
+  ashGl.uniform1f(vortex.scale, clamp(fit.short / 1080, 0.72, 1.85));
   ashGl.drawArrays(ashGl.POINTS, 0, vortex.count);
 }
