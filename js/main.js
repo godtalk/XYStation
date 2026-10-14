@@ -67,7 +67,7 @@ const title = document.querySelector(".fly-title");
 const gateUi = [...document.querySelectorAll(".gate-ui")];
 
 const PATH_MAX = 24;
-const WHEEL_STEP = 0.3;
+const WHEEL_STEP = 0.15;
 const TOUCH_SCALE = 0.05;
 const KEY_STEP = 0.8;
 const ENTER_STEP = 4.5;
@@ -284,10 +284,10 @@ vec2 flowStep(vec2 U, float i, float t, float ox) {
 }
 
 void main() {
-  float beams = 10.0;
+  float beams = 15.0;
   float id = floor(aUv.y * beams);
-  float across = fract(aUv.y * beams);
-  float along = fract(aUv.x - uTime * 0.006);
+  float across = clamp(fract(aUv.y * beams) + (fract(aSeed * 4.17) - 0.5) * 0.28, 0.0, 1.0);
+  float along = fract(aUv.x + aSeed - uTime * 0.006);
   float heading = (id + 0.5) * 6.283185 / beams;
   float travel = mix(-2.21, 2.21, along);
   float fromCenter = clamp(abs(travel) / 2.21, 0.0, 1.0);
@@ -313,11 +313,16 @@ void main() {
   float falloff = exp(-rad * rad * 5.5);
   ang -= falloff * 5.0;
   vec2 p = vec2(cos(ang), sin(ang)) * rad * 1.2;
+  float spin = -uTime * 0.1;
+  float sc = cos(spin);
+  float ss = sin(spin);
+  p = vec2(sc * p.x - ss * p.y, ss * p.x + sc * p.y);
   float w = clamp(length(vel) * 6.0, 0.0, 1.6);
-  float core = smoothstep(0.5, 0.04, abs(across - 0.5));
+  float reach = smoothstep(0.0, 2.05, rad);
+  float core = mix(0.7, 1.0, smoothstep(0.5, 0.05, abs(across - 0.5)));
   float ends = smoothstep(0.0, 0.07, along) * smoothstep(1.0, 0.93, along);
-  vAlpha = core * ends * uVis * (0.21 + 0.44 * w) * (0.48 + 0.45 * aSeed);
-  float sizeTaper = mix(0.2, 1.25, smoothstep(0.0, 2.05, rad));
+  vAlpha = core * ends * uVis * (0.21 + 0.44 * w) * (0.48 + 0.45 * aSeed) * mix(0.3, 1.0, reach);
+  float sizeTaper = mix(0.5, 1.1, reach);
   gl_PointSize = clamp((1.15 + w * 1.9) * sizeTaper * uDpr * 1.2, 0.42, 6.0);
   vec2 screen = p * uRadius + uOrigin;
   gl_Position = vec4(
@@ -410,7 +415,8 @@ function buildVortex() {
 
 function drawVortex(now) {
   if (!ashGl || !vortex.program || !vortex.count) return;
-  const vis = phase === "is-station" ? clamp(1 - (cam.progress - 0.6) / 3.6, 0, 1) : 1;
+  const fade = clamp((cam.progress - 0.2) / 3.4, 0, 1);
+  const vis = 1 - fade * fade * (3 - 2 * fade);
   ashGl.viewport(0, 0, ash.width, ash.height);
   ashGl.clearColor(0, 0, 0, 0);
   ashGl.clear(ashGl.COLOR_BUFFER_BIT);
@@ -1269,10 +1275,17 @@ document.querySelectorAll("[data-go='gate']").forEach((el) => {
 document.querySelector(".peek-mask").addEventListener("click", closePeek);
 setActiveNav(null);
 
+function wheelInScrollableText(event) {
+  const el = event.target instanceof Element ? event.target : event.target?.parentElement;
+  const pane = el?.closest(".float-scroll, .holo-resume");
+  if (!pane) return false;
+  return pane.scrollHeight - pane.clientHeight > 8;
+}
+
 window.addEventListener(
   "wheel",
   (event) => {
-    if (event.target.closest(".holo") || body.classList.contains("is-peek")) return;
+    if (wheelInScrollableText(event) || body.classList.contains("is-peek")) return;
     event.preventDefault();
     const step = event.deltaY > 0 ? -WHEEL_STEP : WHEEL_STEP;
     if (holdStationWheel(step)) return;
