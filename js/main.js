@@ -4,7 +4,12 @@ const clock = document.getElementById("clock");
 const canvas = document.getElementById("view");
 const ctx = canvas.getContext("2d");
 const ash = document.getElementById("ash");
-const ashCtx = ash.getContext("2d");
+const ashGl = ash.getContext("webgl", {
+  alpha: true,
+  premultipliedAlpha: false,
+  antialias: false,
+  depth: false,
+});
 const beacons = [...document.querySelectorAll(".beacon")];
 const station = document.getElementById("station");
 
@@ -183,8 +188,19 @@ const cam = {
 
 const dust = [];
 const motes = [];
-const floaters = [];
-let vortexClock = 0;
+const vortex = {
+  segments: 0,
+  count: 0,
+  program: null,
+  buffer: null,
+  seedBuffer: null,
+  origin: null,
+  resolution: null,
+  radius: null,
+  time: null,
+  vis: null,
+  dpr: null,
+};
 let ready = false;
 let lastTouchY = 0;
 let phase = "is-boot";
@@ -199,20 +215,18 @@ function fitCanvas(el, context) {
 
 function resize() {
   fitCanvas(canvas, ctx);
-  fitCanvas(ash, ashCtx);
-}
-
-function sinNoise2(x, y, z) {
-  return [
-    Math.sin(x * 12.9898 + y * 78.233) * Math.cos(z * 45.164) * 0.5,
-    Math.cos(x * 91.123 + z * 37.719) * Math.sin(y * 83.456) * 0.5,
-  ];
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  ash.width = Math.round(innerWidth * dpr);
+  ash.height = Math.round(innerHeight * dpr);
+  ash.style.width = `${innerWidth}px`;
+  ash.style.height = `${innerHeight}px`;
+  if (ashGl) ashGl.viewport(0, 0, ash.width, ash.height);
+  buildVortex();
 }
 
 function spawnDust() {
   dust.length = 0;
   motes.length = 0;
-  floaters.length = 0;
   for (let i = 0; i < 260; i += 1) {
     const x = (Math.random() - 0.5) * 92;
     const y = (Math.random() - 0.5) * 52;
@@ -235,41 +249,10 @@ function spawnDust() {
       ph: Math.random() * Math.PI * 2,
     });
   }
-  const area = innerWidth * innerHeight;
-  const count = Math.round(Math.min(28000, Math.max(14000, area / 55)));
-  const rMax = Math.min(innerWidth, innerHeight) * 0.74;
-  const rMin = 10;
-  const arms = 6;
-  const twist = 1.22;
-  const gap = (Math.PI * 2) / arms;
-  for (let i = 0; i < count; i += 1) {
-    const u = Math.pow(Math.random(), 1.35);
-    const tail = Math.pow(Math.random(), 3.8) * rMax * 0.28;
-    const r = rMin + u * (rMax - rMin) + tail;
-    const arm = i % arms;
-    const onArm = Math.random() > 0.22;
-    const th = onArm
-      ? arm * gap + Math.log(r / rMin) * twist + (Math.random() - 0.5) * 0.55
-      : Math.random() * Math.PI * 2;
-    floaters.push({
-      r,
-      th,
-      th0: th,
-      rMax,
-      rMin,
-      twist,
-      seed: Math.random() * 40,
-      mass: 0.48 + Math.random() * 1.2,
-      size: 1,
-      a: onArm ? 0.2 + Math.random() * 0.32 : 0.1 + Math.random() * 0.16,
-    });
-  }
 }
 
 function tickDust(now) {
   const t = now / 1000;
-  const dt = Math.min(0.033, vortexClock ? (now - vortexClock) / 1000 : 0.016);
-  vortexClock = now;
   dust.forEach((p) => {
     p.x = p.bx + Math.sin(t * 0.07 + p.ph) * 1.6;
     p.y = p.by + Math.cos(t * 0.055 + p.ph * 1.1) * 1.2;
@@ -280,50 +263,177 @@ function tickDust(now) {
     m.y = m.by + Math.cos(t * 0.045 + m.ph) * 0.9;
     m.z = m.bz + Math.sin(t * 0.035 + m.ph * 0.7) * 1.4;
   });
-  const cx = innerWidth * 0.5 + cam.lookX * 48;
-  const cy = innerHeight * 0.48 + cam.lookY * 32;
-  const omega = -0.34;
-  const flow = 0.03;
-  const amp = 86;
-  const crawl = t * 0.08;
-  for (let i = 0; i < floaters.length; i += 1) {
-    const p = floaters[i];
-    p.th += omega * dt;
-    p.r += ((p.r * omega) / p.twist) * flow * dt;
-    if (p.r < p.rMin) {
-      p.r = p.rMax * (0.72 + Math.random() * 0.28);
-      const arm = Math.floor(Math.random() * 6);
-      p.th = arm * ((Math.PI * 2) / 6) + Math.log(p.r / p.rMin) * p.twist + (Math.random() - 0.5) * 0.5;
-      p.th0 = p.th;
-    }
-    const xw = Math.cos(p.th) * p.r;
-    const yw = Math.sin(p.th) * p.r;
-    const n1 = sinNoise2(p.r * 0.0065, p.th0 * 0.7, crawl + p.seed * 0.03);
-    const n2 = sinNoise2(p.r * 0.013, p.th0 * 1.4, crawl * 0.85 + p.seed * 0.02);
-    const lx = (n1[0] + n2[0] * 0.45) * amp;
-    const ly = (n1[1] + n2[1] * 0.45) * amp;
-    const ct = Math.cos(p.th);
-    const st = Math.sin(p.th);
-    p.x = cx + xw + lx * ct - ly * st;
-    p.y = cy + yw + lx * st + ly * ct;
-    const u = p.r / p.rMax;
-    p.size = p.mass * (0.55 + u * 1.25);
-    p.aView = clamp((p.a || 0.2) * (0.75 + u * 0.35), 0.08, 0.5);
-  }
 }
 
-function drawFloaters() {
-  ashCtx.clearRect(0, 0, innerWidth, innerHeight);
-  const vis = phase === "is-station" ? clamp(1 - cam.progress / 5.2, 0.12, 1) : 1;
-  if (vis < 0.02) return;
-  ashCtx.fillStyle = "#1a1814";
-  for (let i = 0; i < floaters.length; i += 1) {
-    const p = floaters[i];
-    ashCtx.globalAlpha = (p.aView || p.a) * vis;
-    const sz = Math.max(0.4, p.size);
-    ashCtx.fillRect(p.x, p.y, sz, sz);
+// Flow field: CC BY-NC-SA 4.0
+// https://creativecommons.org/licenses/by-nc-sa/4.0/
+const VORTEX_VERT = `
+precision mediump float;
+attribute vec2 aUv;
+attribute float aSeed;
+uniform vec2 uResolution;
+uniform vec2 uOrigin;
+uniform float uRadius;
+uniform float uTime;
+uniform float uVis;
+uniform float uDpr;
+varying float vAlpha;
+
+vec2 flowStep(vec2 U, float i, float t, float ox) {
+  return cos(cos(U * i + t) + cos(U.yx * i) + (ox + t) * i * i) / i / 9.0;
+}
+
+void main() {
+  float beams = 10.0;
+  float id = floor(aUv.y * beams);
+  float across = fract(aUv.y * beams);
+  float along = fract(aUv.x - uTime * 0.006);
+  float heading = (id + 0.5) * 6.283185 / beams;
+  float travel = mix(-2.21, 2.21, along);
+  float fromCenter = clamp(abs(travel) / 2.21, 0.0, 1.0);
+  float cone = mix(0.06, 2.16, fromCenter);
+  float thick = (across - 0.5) * cone;
+  vec2 dir = vec2(cos(heading), sin(heading));
+  vec2 nrm = vec2(-dir.y, dir.x);
+  vec2 home = dir * travel + nrm * thick;
+  vec2 u = home * 2.8;
+  vec2 vel = vec2(0.0);
+  float ox = 0.1 + id * 0.17;
+  for (int k = 0; k < 8; k++) {
+    float i = float(k) + 1.0;
+    float t = uTime * 0.025 / i;
+    vel += flowStep(u, i, t, ox) + flowStep(u.yx, i, t, ox);
+    vec4 cs = cos(i + length(u) * 0.3 / i - t * 0.5 + vec4(0.0, 11.0, 33.0, 0.0));
+    u = u * mat2(cs.x, cs.y, cs.z, cs.w);
+    ox += cos(u.x + i + ox * 9.0 + t) / 4.0 / i;
   }
-  ashCtx.globalAlpha = 1;
+  vec2 flow = home + vel * 1.05;
+  float rad = length(flow);
+  float ang = atan(flow.y, flow.x);
+  float falloff = exp(-rad * rad * 5.5);
+  ang -= falloff * 5.0;
+  vec2 p = vec2(cos(ang), sin(ang)) * rad * 1.2;
+  float w = clamp(length(vel) * 6.0, 0.0, 1.6);
+  float core = smoothstep(0.5, 0.04, abs(across - 0.5));
+  float ends = smoothstep(0.0, 0.07, along) * smoothstep(1.0, 0.93, along);
+  vAlpha = core * ends * uVis * (0.21 + 0.44 * w) * (0.48 + 0.45 * aSeed);
+  float sizeTaper = mix(0.2, 1.25, smoothstep(0.0, 2.05, rad));
+  gl_PointSize = clamp((1.15 + w * 1.9) * sizeTaper * uDpr * 1.2, 0.42, 6.0);
+  vec2 screen = p * uRadius + uOrigin;
+  gl_Position = vec4(
+    screen.x / uResolution.x * 2.0,
+    -screen.y / uResolution.y * 2.0,
+    0.0,
+    1.0
+  );
+}
+`;
+
+const VORTEX_FRAG = `
+precision mediump float;
+varying float vAlpha;
+void main() {
+  vec2 p = gl_PointCoord * 2.0 - 1.0;
+  float d = dot(p, p);
+  if (d > 1.0) discard;
+  float soft = smoothstep(1.0, 0.15, d);
+  gl_FragColor = vec4(0.26, 0.24, 0.21, vAlpha * soft);
+}
+`;
+
+function compileShader(type, source) {
+  const shader = ashGl.createShader(type);
+  ashGl.shaderSource(shader, source);
+  ashGl.compileShader(shader);
+  if (!ashGl.getShaderParameter(shader, ashGl.COMPILE_STATUS)) {
+    ashGl.deleteShader(shader);
+    return null;
+  }
+  return shader;
+}
+
+function initVortex() {
+  if (!ashGl || vortex.program) return;
+  const vert = compileShader(ashGl.VERTEX_SHADER, VORTEX_VERT);
+  const frag = compileShader(ashGl.FRAGMENT_SHADER, VORTEX_FRAG);
+  if (!vert || !frag) return;
+  const program = ashGl.createProgram();
+  ashGl.attachShader(program, vert);
+  ashGl.attachShader(program, frag);
+  ashGl.linkProgram(program);
+  if (!ashGl.getProgramParameter(program, ashGl.LINK_STATUS)) return;
+  vortex.program = program;
+  vortex.buffer = ashGl.createBuffer();
+  vortex.seedBuffer = ashGl.createBuffer();
+  vortex.origin = ashGl.getUniformLocation(program, "uOrigin");
+  vortex.resolution = ashGl.getUniformLocation(program, "uResolution");
+  vortex.radius = ashGl.getUniformLocation(program, "uRadius");
+  vortex.time = ashGl.getUniformLocation(program, "uTime");
+  vortex.vis = ashGl.getUniformLocation(program, "uVis");
+  vortex.dpr = ashGl.getUniformLocation(program, "uDpr");
+  vortex.aUv = ashGl.getAttribLocation(program, "aUv");
+  vortex.aSeed = ashGl.getAttribLocation(program, "aSeed");
+  ashGl.enable(ashGl.BLEND);
+  ashGl.blendFunc(ashGl.SRC_ALPHA, ashGl.ONE_MINUS_SRC_ALPHA);
+  ashGl.disable(ashGl.DEPTH_TEST);
+}
+
+function buildVortex() {
+  if (!ashGl) return;
+  initVortex();
+  if (!vortex.program) return;
+  const span = Math.min(innerWidth, innerHeight) * 0.92;
+  const segments = Math.round(clamp(span / 1.55, 200, 460));
+  if (vortex.segments === segments && vortex.rev === 3) return;
+  vortex.rev = 3;
+  vortex.segments = segments;
+  const count = segments * segments;
+  vortex.count = count;
+  const uv = new Float32Array(count * 2);
+  const seed = new Float32Array(count);
+  let i = 0;
+  for (let y = 0; y < segments; y += 1) {
+    for (let x = 0; x < segments; x += 1) {
+      const jx = (hash01(i * 2.17) - 0.5) * 0.35;
+      const jy = (hash01(i * 3.91 + 8.2) - 0.5) * 0.2;
+      uv[i * 2] = (x + 0.5 + jx) / segments;
+      uv[i * 2 + 1] = (y + 0.5 + jy) / segments;
+      seed[i] = hash01(i * 1.37 + 2.4);
+      i += 1;
+    }
+  }
+  ashGl.bindBuffer(ashGl.ARRAY_BUFFER, vortex.buffer);
+  ashGl.bufferData(ashGl.ARRAY_BUFFER, uv, ashGl.STATIC_DRAW);
+  ashGl.bindBuffer(ashGl.ARRAY_BUFFER, vortex.seedBuffer);
+  ashGl.bufferData(ashGl.ARRAY_BUFFER, seed, ashGl.STATIC_DRAW);
+}
+
+function drawVortex(now) {
+  if (!ashGl || !vortex.program || !vortex.count) return;
+  const vis = phase === "is-station" ? clamp(1 - (cam.progress - 0.6) / 3.6, 0, 1) : 1;
+  ashGl.viewport(0, 0, ash.width, ash.height);
+  ashGl.clearColor(0, 0, 0, 0);
+  ashGl.clear(ashGl.COLOR_BUFFER_BIT);
+  if (vis < 0.02) return;
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  ashGl.useProgram(vortex.program);
+  ashGl.bindBuffer(ashGl.ARRAY_BUFFER, vortex.buffer);
+  ashGl.enableVertexAttribArray(vortex.aUv);
+  ashGl.vertexAttribPointer(vortex.aUv, 2, ashGl.FLOAT, false, 0, 0);
+  ashGl.bindBuffer(ashGl.ARRAY_BUFFER, vortex.seedBuffer);
+  ashGl.enableVertexAttribArray(vortex.aSeed);
+  ashGl.vertexAttribPointer(vortex.aSeed, 1, ashGl.FLOAT, false, 0, 0);
+  ashGl.uniform2f(vortex.resolution, ash.width, ash.height);
+  ashGl.uniform2f(
+    vortex.origin,
+    cam.lookX * 36 * dpr,
+    (innerHeight * -0.02 + cam.lookY * 24) * dpr,
+  );
+  ashGl.uniform1f(vortex.radius, Math.min(innerWidth, innerHeight) * 0.46 * dpr);
+  ashGl.uniform1f(vortex.time, (now || 0) / 1000);
+  ashGl.uniform1f(vortex.vis, vis);
+  ashGl.uniform1f(vortex.dpr, dpr);
+  ashGl.drawArrays(ashGl.POINTS, 0, vortex.count);
 }
 
 function sample(keys, t) {
@@ -1117,7 +1227,7 @@ function loop(now) {
   tickDust(now || performance.now());
   applyProgress(cam.progress);
   drawWorld();
-  drawFloaters();
+  drawVortex(now);
   requestAnimationFrame(loop);
 }
 
@@ -1140,8 +1250,8 @@ window.addEventListener("resize", () => {
 });
 
 window.addEventListener("mousemove", (event) => {
-  cam.mx = (event.clientX / innerWidth - 0.5) * 1.2;
-  cam.my = (event.clientY / innerHeight - 0.5) * 1.2;
+  cam.mx = (event.clientX / innerWidth - 0.5) * -2.4;
+  cam.my = (event.clientY / innerHeight - 0.5) * -2.4;
   document.documentElement.style.setProperty("--mx", `${(event.clientX / innerWidth) * 100}%`);
   document.documentElement.style.setProperty("--my", `${(event.clientY / innerHeight) * 100}%`);
 });
