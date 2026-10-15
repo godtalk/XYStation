@@ -27,7 +27,7 @@ export const cards = {
   },
   works: {
     code: "WK",
-    title: "个人作品",
+    title: "场景原画",
     meta: "原画 / 场景 / 设定",
   },
   unity: {
@@ -43,7 +43,7 @@ export const cards = {
   },
   contact: {
     code: "CONTACT",
-    title: "联络",
+    title: "联系方式",
     meta: "公开联系方式",
     html: `<p>手机　<a href="tel:18612238615">18612238615</a></p><p>邮箱　<a href="mailto:zxy08165108@163.com">zxy08165108@163.com</a></p><p><a href="https://github.com/godtalk" target="_blank" rel="noopener">GitHub · godtalk</a></p>`,
   },
@@ -57,13 +57,13 @@ export const ENTER_STEP = 4.5;
 export const HOLD_TICKS = 3;
 export const HOLD_KEYS = ["resume", "software", "works", "tools"];
 export const NAV_STOPS = [
-  { key: "gate", at: 0, label: "00 本站入口" },
-  { key: "resume", at: 4.5, label: "CV 个人简历" },
-  { key: "software", at: 8, label: "SW 常用软件" },
-  { key: "works", at: 12, until: 15.2, label: "WK 个人作品" },
-  { key: "unity", at: 16, label: "UN Unity效果" },
-  { key: "tools", at: 20, until: 22.6, label: "TL 工具研发" },
-  { key: "contact", at: 23.2, label: "CT 联系方式" },
+  { key: "gate", at: 0, label: "00 本站入口", short: "00 入口" },
+  { key: "resume", at: 4.5, label: "CV 个人简历", short: "CV 简历" },
+  { key: "software", at: 8, label: "SW 常用软件", short: "SW 软件" },
+  { key: "works", at: 12, until: 15.2, label: "WK 原画作品", short: "WK 原画" },
+  { key: "unity", at: 16, label: "UN Unity效果", short: "UN UNITY" },
+  { key: "tools", at: 20, until: 22.6, label: "TL 工具研发", short: "TL 工具" },
+  { key: "contact", at: 23.2, label: "CT 联系方式", short: "CT 联系" },
 ];
 export const SPACE = 48;
 export const px = [

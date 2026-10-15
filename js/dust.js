@@ -9,6 +9,7 @@ const dust = [];
 const motes = [];
 const TITLE_PARALLAX_X = 14;
 const TITLE_PARALLAX_Y = 9;
+let titleDot = 1.2;
 
 function fitCanvas(el, context) {
   el.width = innerWidth * devicePixelRatio;
@@ -23,9 +24,8 @@ export function resizeView() {
 }
 
 function sampleWord(text) {
-  const { density } = screenFit();
-  const fontPx = 240;
-  const tracking = `${Math.round(fontPx * 0.08)}px`;
+  const fontPx = 420;
+  const tracking = `${Math.round(fontPx * 0.1)}px`;
   const probe = document.createElement("canvas").getContext("2d");
   probe.font = `800 ${fontPx}px Syne, "Noto Sans SC", sans-serif`;
   probe.letterSpacing = tracking;
@@ -34,10 +34,10 @@ function sampleWord(text) {
     m.width,
     Math.abs(m.actualBoundingBoxLeft || 0) + Math.abs(m.actualBoundingBoxRight || 0),
   ));
-  const padX = Math.ceil(fontPx * 0.6);
-  const padY = Math.ceil(fontPx * 0.5);
+  const padX = Math.ceil(fontPx * 0.55);
+  const padY = Math.ceil(fontPx * 0.45);
   const w = Math.max(64, textW + padX * 2);
-  const h = Math.ceil(fontPx * 1.45) + padY;
+  const h = Math.ceil(fontPx * 1.35) + padY;
   const c = document.createElement("canvas");
   const g = c.getContext("2d");
   c.width = w;
@@ -49,6 +49,7 @@ function sampleWord(text) {
   g.textBaseline = "middle";
   g.fillText(text, w / 2, h / 2);
   const img = g.getImageData(0, 0, w, h).data;
+  const src = new Uint8Array(w * h);
   let minX = w;
   let minY = h;
   let maxX = 0;
@@ -56,6 +57,7 @@ function sampleWord(text) {
   for (let y = 0; y < h; y += 1) {
     for (let x = 0; x < w; x += 1) {
       if (img[(y * w + x) * 4 + 3] < 80) continue;
+      src[y * w + x] = 1;
       if (x < minX) minX = x;
       if (y < minY) minY = y;
       if (x > maxX) maxX = x;
@@ -63,27 +65,30 @@ function sampleWord(text) {
     }
   }
   if (maxX <= minX || maxY <= minY) return [];
+  const open = Math.round(fontPx * 0.032);
+  const ink = erodeInk(src, w, h, minX, minY, maxX, maxY, open);
   const bw = maxX - minX;
   const bh = maxY - minY;
   const cx = (minX + maxX) / 2;
   const cy = (minY + maxY) / 2;
-  const inkAt = (x, y) => {
-    if (x < 0 || y < 0 || x >= w || y >= h) return false;
-    return img[(y * w + x) * 4 + 3] >= 80;
-  };
-  const step = density > 1.1 ? 3 : 4;
+  const on = (x, y) => x >= 0 && y >= 0 && x < w && y < h && ink[y * w + x] === 1;
   const focal = Math.min(innerWidth, innerHeight) * 0.92;
   const depth = 18.18 * SPACE;
   const maxW = innerWidth * 0.62;
   const spanZ = (maxW * depth) / (SPACE * focal);
+  const gap = clamp(maxW / 520, 1.55, 2.6);
+  const step = Math.round(clamp((gap * bw) / maxW, 3, 11));
+  const screenStep = (step / Math.max(bw, 1)) * maxW;
+  titleDot = clamp(screenStep * 0.3, 0.32, 1.45);
   const spanY = spanZ * (bh / bw);
+  const edgeStride = Math.max(2, Math.round(step * 0.45));
   const pts = [];
   for (let y = minY; y <= maxY; y += 1) {
     for (let x = minX; x <= maxX; x += 1) {
-      if (!inkAt(x, y)) continue;
-      const edge = !inkAt(x - 1, y) || !inkAt(x + 1, y) || !inkAt(x, y - 1) || !inkAt(x, y + 1);
+      if (!on(x, y)) continue;
+      const edge = !on(x - 1, y) || !on(x + 1, y) || !on(x, y - 1) || !on(x, y + 1);
       if (edge) {
-        if ((x + y) % 2) continue;
+        if ((x + y) % edgeStride) continue;
       } else if (x % step || y % step) continue;
       const u = (x - cx) / bw;
       const v = (y - cy) / bh;
@@ -95,7 +100,39 @@ function sampleWord(text) {
       });
     }
   }
-  return pts.filter((_, i) => i % 10 < 7);
+  return pts;
+}
+
+function erodeInk(src, w, h, minX, minY, maxX, maxY, radius) {
+  const tmp = new Uint8Array(w * h);
+  const out = new Uint8Array(w * h);
+  for (let y = minY; y <= maxY; y += 1) {
+    for (let x = minX; x <= maxX; x += 1) {
+      let ok = 1;
+      for (let k = -radius; k <= radius; k += 1) {
+        const xx = x + k;
+        if (xx < 0 || xx >= w || !src[y * w + xx]) {
+          ok = 0;
+          break;
+        }
+      }
+      tmp[y * w + x] = ok;
+    }
+  }
+  for (let y = minY; y <= maxY; y += 1) {
+    for (let x = minX; x <= maxX; x += 1) {
+      let ok = 1;
+      for (let k = -radius; k <= radius; k += 1) {
+        const yy = y + k;
+        if (yy < 0 || yy >= h || !tmp[yy * w + x]) {
+          ok = 0;
+          break;
+        }
+      }
+      out[y * w + x] = ok;
+    }
+  }
+  return out;
 }
 
 export function spawnDust() {
@@ -127,9 +164,9 @@ export function spawnDust() {
       gy: g.ty + (Math.random() - 0.5) * 10,
       gz: g.tz + (Math.random() - 0.5) * 20,
       tx: g.tx, ty: g.ty, tz: g.tz,
-      ox: (Math.random() - 0.5) * 0.11,
-      oy: (Math.random() - 0.5) * 0.09,
-      oz: (Math.random() - 0.5) * 0.1,
+      ox: (Math.random() - 0.5) * 0.05,
+      oy: (Math.random() - 0.5) * 0.04,
+      oz: (Math.random() - 0.5) * 0.05,
       ph: Math.random() * Math.PI * 2 + i * 0.01,
       glyph: true,
       edge: g.edge,
@@ -224,8 +261,8 @@ export function drawWorld() {
       const fade = runtime.ready
         ? formed * (1 - scatter) + bg * scatter
         : formed * (0.22 + 0.78 * hold);
-      ctx.globalAlpha = p.edge ? fade : fade * 0.72;
-      const r = Math.max(1.2, a.s * 0.0325) * (1 + scatter);
+      ctx.globalAlpha = p.edge ? fade : fade * 0.5;
+      const r = titleDot * (p.edge ? 0.9 : 0.55) * (1 + scatter);
       ctx.beginPath();
       ctx.arc(a.x, a.y, r, 0, Math.PI * 2);
       ctx.fill();

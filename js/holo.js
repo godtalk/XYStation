@@ -1,8 +1,8 @@
 import { cam, runtime } from "./state.js";
-import { beaconWorld, cards, fields, holoVisibility } from "./data.js";
+import { beaconWorld, cards, fields, holoVisibility } from "./data.js?v=contact-name";
 import { project } from "./camera.js";
 import { clamp } from "./util.js";
-import { layoutFields } from "./fields.js?v=soft13";
+import { layoutFields } from "./fields.js?v=icon-fit";
 
 const beacons = [...document.querySelectorAll(".beacon")];
 const station = document.getElementById("station");
@@ -57,12 +57,18 @@ function layoutHolos() {
       return;
     }
     const slam = slamOf(vis);
-    if (id === "resume" && innerWidth >= 720) {
+    const resumeWide = innerWidth >= 1100 && innerWidth > innerHeight;
+    if (id === "resume" && resumeWide) {
       const navW = 210;
       el.style.left = `${navW + (innerWidth - navW) / 2}px`;
       el.style.top = "50%";
       el.style.bottom = "auto";
       el.style.transform = `translate(-50%, calc(-50% + ${slam.lift}px)) scale(${slam.scale}) rotateY(${slam.yaw}deg)`;
+    } else if (id === "resume") {
+      el.style.left = "50%";
+      el.style.top = "48%";
+      el.style.bottom = "auto";
+      el.style.transform = `translate(-50%, -50%) scale(${slam.scale})`;
     } else if (innerWidth < 720) {
       el.style.left = "12px";
       el.style.top = "auto";

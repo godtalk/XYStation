@@ -1,6 +1,6 @@
 import { cam, runtime } from "./state.js";
 import { beaconWorld, fields, holoVisibility, stopByKey } from "./data.js?v=packs";
-import { clamp, hash01, isVideoSrc, mediaURL, screenFit } from "./util.js";
+import { clamp, hash01, isVideoSrc, mediaURL } from "./util.js";
 import { openPeek } from "./peek.js";
 
 const station = document.getElementById("station");
@@ -296,14 +296,10 @@ function layoutSoftware(nodes, vis, now, navW, areaW, areaH) {
   const boardH = areaH * (compact ? 0.82 : 0.78);
   const ox = navW + 20 + (areaW - boardW) * 0.5;
   const oy = (innerHeight - boardH) * 0.48;
-  const cell = Math.min(boardW / 4.15, boardH / 2.3);
-  const dens = screenFit().density;
-  const boost = compact
-    ? 1.6
-    : 1.6 + (1.3 - 1.6) * clamp((dens - 0.55) / 0.8, 0, 1);
-  const base = compact
-    ? clamp(cell * 0.78 * boost, 72, 230)
-    : clamp(cell * 0.56 * boost, 110, 560);
+  const cols = compact ? 2.2 : 4.15;
+  const rows = compact ? 4.35 : 2.35;
+  const cell = Math.min(boardW / cols, boardH / rows);
+  const base = cell * (compact ? 0.76 : 0.72);
   const boardKey = `${Math.round(boardW)}:${Math.round(boardH)}:${Math.round(base)}`;
   const compactAt = [
     [0.28, 0.14], [0.72, 0.14], [0.28, 0.38], [0.72, 0.38],
@@ -318,7 +314,7 @@ function layoutSoftware(nodes, vis, now, navW, areaW, areaH) {
     const s = compact ? 1 : (node.scale || 1);
     const size = Math.round(base * s);
     node.el.style.setProperty("--soft", `${size}px`);
-    node.el.style.setProperty("--soft-label", `${clamp(size * 0.09, 10, 22)}px`);
+    node.el.style.setProperty("--soft-label", `${clamp(size * 0.1, 11, 40)}px`);
     const rad = size * 0.5 + size * 0.18;
     const slot = compact ? compactAt[n] : (node.at || [0.5, 0.5]);
     if (!node.body || node.boardKey !== boardKey) {

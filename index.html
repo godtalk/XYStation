@@ -11,7 +11,7 @@
       href="https://fonts.googleapis.com/css2?family=Chivo+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;500;700&family=Syne:wght@700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="css/style.css?v=packs" />
+    <link rel="stylesheet" href="css/style.css?v=rail-name" />
     <link rel="preload" as="video" href="mp4/MShader.mp4?v=fs1" />
   </head>
   <body class="is-boot">
@@ -58,7 +58,7 @@
         <i></i><span>SW 软件</span>
       </button>
       <button class="beacon" type="button" data-id="works">
-        <i></i><span>WK 作品</span>
+        <i></i><span>WK 原画作品</span>
       </button>
       <button class="beacon" type="button" data-id="unity">
         <i></i><span>UN Unity</span>
@@ -67,40 +67,40 @@
         <i></i><span>TL 工具</span>
       </button>
       <button class="beacon" type="button" data-id="contact">
-        <i></i><span>CT 联络</span>
+        <i></i><span>CT 联系方式</span>
       </button>
     </section>
 
     <nav class="rail" id="rail" aria-label="站台导航">
       <p class="rail-kicker">Index</p>
-      <p class="rail-now" id="rail-now">00 本站入口</p>
+      <p class="rail-now" id="rail-now"><span class="rail-long">00 本站入口</span><span class="rail-short">00 入口</span></p>
       <div class="rail-list">
         <button type="button" class="rail-item" data-go="gate">
-          <i></i><em>00</em><span>本站入口</span>
+          <i></i><em>00</em><span class="rail-long">本站入口</span><span class="rail-short">入口</span>
         </button>
         <span class="rail-seg" data-from="gate" aria-hidden="true"></span>
         <button type="button" class="rail-item" data-id="resume">
-          <i></i><em>CV</em><span>个人简历</span>
+          <i></i><em>CV</em><span class="rail-long">个人简历</span><span class="rail-short">简历</span>
         </button>
         <span class="rail-seg" data-from="resume" aria-hidden="true"></span>
         <button type="button" class="rail-item" data-id="software">
-          <i></i><em>SW</em><span>常用软件</span>
+          <i></i><em>SW</em><span class="rail-long">常用软件</span><span class="rail-short">软件</span>
         </button>
         <span class="rail-seg" data-from="software" aria-hidden="true"></span>
         <button type="button" class="rail-item" data-id="works">
-          <i></i><em>WK</em><span>个人作品</span>
+          <i></i><em>WK</em><span class="rail-long">原画作品</span><span class="rail-short">原画</span>
         </button>
         <span class="rail-seg" data-from="works" aria-hidden="true"></span>
         <button type="button" class="rail-item" data-id="unity">
-          <i></i><em>UN</em><span>Unity效果</span>
+          <i></i><em>UN</em><span class="rail-long">Unity效果</span><span class="rail-short">UNITY</span>
         </button>
         <span class="rail-seg" data-from="unity" aria-hidden="true"></span>
         <button type="button" class="rail-item" data-id="tools">
-          <i></i><em>TL</em><span>工具研发</span>
+          <i></i><em>TL</em><span class="rail-long">工具研发</span><span class="rail-short">工具</span>
         </button>
         <span class="rail-seg" data-from="tools" aria-hidden="true"></span>
         <button type="button" class="rail-item" data-id="contact">
-          <i></i><em>CT</em><span>联系方式</span>
+          <i></i><em>CT</em><span class="rail-long">联系方式</span><span class="rail-short">联系</span>
         </button>
       </div>
     </nav>
@@ -115,6 +115,6 @@
       </figure>
     </div>
 
-    <script type="module" src="js/main.js?v=soft13"></script>
+    <script type="module" src="js/main.js?v=contact-name"></script>
   </body>
 </html>

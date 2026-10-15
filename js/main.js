@@ -1,11 +1,11 @@
 import { cam, runtime } from "./state.js";
 import { PATH_MAX, WHEEL_STEP, TOUCH_SCALE, KEY_STEP, ENTER_STEP } from "./data.js";
 import { clamp } from "./util.js";
-import { resizeView, spawnDust, tickDust, drawWorld } from "./dust.js?v=boot-form4";
+import { resizeView, spawnDust, tickDust, drawWorld } from "./dust.js?v=s-open";
 import { resizeVortex, drawVortex } from "./vortex.js";
-import { buildHolos, layoutBeacons } from "./holo.js?v=soft13";
-import { buildFields } from "./fields.js?v=soft13";
-import { applyProgress, setPhase, nudge, jumpTo, holdStationWheel, bindNav } from "./journey.js?v=soft13";
+import { buildHolos, layoutBeacons } from "./holo.js?v=contact-name";
+import { buildFields } from "./fields.js?v=icon-fit";
+import { applyProgress, setPhase, nudge, jumpTo, holdStationWheel, bindNav } from "./journey.js?v=rail-work";
 import { closePeek } from "./peek.js";
 
 const body = document.body;

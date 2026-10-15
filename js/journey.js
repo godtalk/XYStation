@@ -6,9 +6,9 @@ import {
   NAV_STOPS,
   stopAt,
   stopByKey,
-} from "./data.js";
+} from "./data.js?v=rail-work";
 import { poseAt } from "./camera.js";
-import { layoutBeacons } from "./holo.js?v=soft13";
+import { layoutBeacons } from "./holo.js?v=contact-name";
 import { clamp } from "./util.js";
 
 const body = document.body;
@@ -93,7 +93,14 @@ function setActiveNav(key) {
 function syncRail(t) {
   const now = document.getElementById("rail-now");
   const current = stopAt(t);
-  now.textContent = current.label;
+  const long = now.querySelector(".rail-long");
+  const short = now.querySelector(".rail-short");
+  if (long && short) {
+    long.textContent = current.label;
+    short.textContent = current.short;
+  } else {
+    now.textContent = current.label;
+  }
   NAV_STOPS.forEach((stop, index) => {
     const next = NAV_STOPS[index + 1];
     if (!next) return;
