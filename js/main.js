@@ -1,11 +1,10 @@
 import { cam, runtime } from "./state.js";
-import { PATH_MAX, WHEEL_STEP, TOUCH_SCALE, KEY_STEP, ENTER_STEP } from "./data.js";
-import { clamp } from "./util.js";
-import { resizeView, spawnDust, tickDust, drawWorld } from "./dust.js?v=s-open";
+import { TOUCH_SCALE, KEY_IMPULSE, WHEEL_SCALE } from "./data.js?v=damp10";
+import { resizeView, spawnDust, tickDust, drawWorld } from "./dust.js?v=ash9";
 import { resizeVortex, drawVortex } from "./vortex.js";
 import { buildHolos, layoutBeacons } from "./holo.js?v=contact-name";
 import { buildFields } from "./fields.js?v=icon-fit";
-import { applyProgress, setPhase, nudge, jumpTo, holdStationWheel, bindNav } from "./journey.js?v=rail-work";
+import { applyProgress, setPhase, flick, drag, jumpTo, tickMotion, bindNav } from "./journey.js?v=damp10";
 import { closePeek } from "./peek.js";
 
 const body = document.body;
@@ -53,17 +52,17 @@ function tickClock() {
 function loop(now) {
   cam.lookX += (cam.mx - cam.lookX) * 0.05;
   cam.lookY += (cam.my - cam.lookY) * 0.05;
-  const prev = cam.progress;
-  cam.vel += (cam.target - cam.progress) * 0.09;
-  cam.vel *= 0.78;
-  cam.progress += cam.vel;
-  cam.progress = clamp(cam.progress, 0, PATH_MAX);
-  cam.vz = Math.abs(cam.progress - prev) * PATH_MAX;
+  tickMotion(now);
   tickDust(now || performance.now());
   applyProgress(cam.progress);
   drawWorld();
   drawVortex(now);
   requestAnimationFrame(loop);
+}
+
+function wheelImpulse(event) {
+  const line = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? innerHeight : 1;
+  return -event.deltaY * line * WHEEL_SCALE;
 }
 
 function wheelInScrollableText(event) {
@@ -86,9 +85,11 @@ if (document.fonts?.ready) {
   document.fonts.ready.then(() => spawnDust()).catch(() => {});
 }
 
+let resizeTimer = 0;
 window.addEventListener("resize", () => {
   resize();
-  spawnDust();
+  window.clearTimeout(resizeTimer);
+  resizeTimer = window.setTimeout(() => spawnDust(), 180);
 });
 
 window.addEventListener("mousemove", (event) => {
@@ -98,7 +99,7 @@ window.addEventListener("mousemove", (event) => {
   document.documentElement.style.setProperty("--my", `${(event.clientY / innerHeight) * 100}%`);
 });
 
-document.getElementById("enter").addEventListener("click", () => nudge(ENTER_STEP));
+document.getElementById("enter").addEventListener("click", () => jumpTo("resume"));
 document.querySelectorAll(".beacon[data-id]").forEach((el) => {
   el.addEventListener("click", () => jumpTo(el.dataset.id));
 });
@@ -116,9 +117,7 @@ window.addEventListener(
   (event) => {
     if (wheelInScrollableText(event) || body.classList.contains("is-peek")) return;
     event.preventDefault();
-    const step = event.deltaY > 0 ? -WHEEL_STEP : WHEEL_STEP;
-    if (holdStationWheel(step)) return;
-    nudge(step);
+    flick(wheelImpulse(event));
   },
   { passive: false },
 );
@@ -137,7 +136,7 @@ window.addEventListener(
     if (event.target.closest(".holo") || body.classList.contains("is-peek")) return;
     event.preventDefault();
     const y = event.touches[0].clientY;
-    nudge((runtime.lastTouchY - y) * TOUCH_SCALE);
+    drag((runtime.lastTouchY - y) * TOUCH_SCALE);
     runtime.lastTouchY = y;
   },
   { passive: false },
@@ -149,6 +148,6 @@ window.addEventListener("keydown", (event) => {
     return;
   }
   if (body.classList.contains("is-peek")) return;
-  if (event.key === "ArrowUp" || event.key === "PageUp" || event.key === "Enter") nudge(KEY_STEP);
-  if (event.key === "ArrowDown" || event.key === "PageDown") nudge(-KEY_STEP);
+  if (event.key === "ArrowUp" || event.key === "PageUp" || event.key === "Enter") flick(KEY_IMPULSE);
+  if (event.key === "ArrowDown" || event.key === "PageDown") flick(-KEY_IMPULSE);
 });

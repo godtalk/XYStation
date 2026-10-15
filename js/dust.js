@@ -1,4 +1,4 @@
-import { project } from "./camera.js";
+import { beginView, project } from "./camera.js?v=ash9";
 import { cam, runtime } from "./state.js";
 import { SPACE } from "./data.js";
 import { clamp, screenFit } from "./util.js";
@@ -7,6 +7,7 @@ const canvas = document.getElementById("view");
 const ctx = canvas.getContext("2d");
 const dust = [];
 const motes = [];
+const ash = [];
 const TITLE_PARALLAX_X = 14;
 const TITLE_PARALLAX_Y = 9;
 let titleDot = 1.2;
@@ -143,8 +144,10 @@ export function spawnDust() {
   const sy = 64 * clamp(h / 1080, 0.8, 1.5);
   const sz = 120 * wide;
   const glyphs = sampleWord("XYSTATION");
+  const ashN = Math.round(clamp(24000 * density * density, 13000, 24000));
   dust.length = 0;
   motes.length = 0;
+  ash.length = 0;
   for (let i = 0; i < dustN; i += 1) {
     const x = (Math.random() - 0.5) * sx;
     const y = (Math.random() - 0.5) * sy;
@@ -157,16 +160,16 @@ export function spawnDust() {
     const x = (Math.random() - 0.5) * sx;
     const y = (Math.random() - 0.5) * sy;
     const z = (Math.random() - 0.4) * sz;
-    const boom = 1.28 + Math.random() * 0.42;
+    const boom = 1.12 + Math.random() * 0.55;
     dust.push({
       x, y, z, bx: x * boom, by: y * boom, bz: z * boom,
       gx: g.tx + (Math.random() - 0.5) * 16,
       gy: g.ty + (Math.random() - 0.5) * 10,
       gz: g.tz + (Math.random() - 0.5) * 20,
       tx: g.tx, ty: g.ty, tz: g.tz,
-      ox: (Math.random() - 0.5) * 0.05,
-      oy: (Math.random() - 0.5) * 0.04,
-      oz: (Math.random() - 0.5) * 0.05,
+      ox: (Math.random() - 0.5) * 0.08,
+      oy: (Math.random() - 0.5) * 0.06,
+      oz: (Math.random() - 0.5) * 0.08,
       ph: Math.random() * Math.PI * 2 + i * 0.01,
       glyph: true,
       edge: g.edge,
@@ -184,6 +187,21 @@ export function spawnDust() {
       x, y, z, bx: x, by: y, bz: z,
       r: 0.16 + Math.random() * 0.32,
       ph: Math.random() * Math.PI * 2,
+    });
+  }
+  for (let i = 0; i < ashN; i += 1) {
+    const band = Math.random();
+    const near = band < 0.2;
+    const mid = band < 0.55;
+    const span = near ? 0.22 : mid ? 0.55 : 1;
+    ash.push({
+      bx: (Math.random() - 0.5) * sx * span,
+      by: (Math.random() - 0.5) * sy * span,
+      bz: (Math.random() - (near ? 0.15 : 0.4)) * sz * span,
+      mass: near ? 0.16 + Math.random() * 0.22 : mid ? 0.07 + Math.random() * 0.1 : 0.03 + Math.random() * 0.05,
+      amp: near ? 2.8 : mid ? 1.8 : 1.1,
+      ph: Math.random() * Math.PI * 2,
+      x: 0, y: 0, z: 0,
     });
   }
 }
@@ -205,12 +223,13 @@ export function tickDust(now) {
     const fieldY = p.by + Math.cos(t * 0.055 + p.ph * 1.1) * 1.2;
     const fieldZ = p.bz + Math.sin(t * 0.04 + p.ph * 0.8) * 2.1;
     if (p.glyph) {
-      const jx = Math.sin(t * 1.4 + p.ph) * 0.064;
-      const jy = Math.cos(t * 1.15 + p.ph * 1.2) * 0.056;
-      const jz = Math.sin(t * 1.05 + p.ph * 0.7) * 0.052;
-      const fromX = runtime.ready ? fieldX : p.gx + Math.sin(t * 0.45 + p.ph) * 0.9;
-      const fromY = runtime.ready ? fieldY : p.gy + Math.cos(t * 0.4 + p.ph * 1.1) * 0.7;
-      const fromZ = runtime.ready ? fieldZ : p.gz + Math.sin(t * 0.35 + p.ph * 0.8) * 1.1;
+      const jx = Math.sin(t * 1.4 + p.ph) * 0.09;
+      const jy = Math.cos(t * 1.15 + p.ph * 1.2) * 0.078;
+      const jz = Math.sin(t * 1.05 + p.ph * 0.7) * 0.072;
+      const scatterAmp = runtime.ready ? 1 + (1 - hold) * 1.8 : 1;
+      const fromX = runtime.ready ? p.bx + Math.sin(t * 0.09 + p.ph) * 2.8 * scatterAmp : p.gx + Math.sin(t * 0.45 + p.ph) * 0.9;
+      const fromY = runtime.ready ? p.by + Math.cos(t * 0.075 + p.ph * 1.1) * 2.1 * scatterAmp : p.gy + Math.cos(t * 0.4 + p.ph * 1.1) * 0.7;
+      const fromZ = runtime.ready ? p.bz + Math.sin(t * 0.06 + p.ph * 0.8) * 3.4 * scatterAmp : p.gz + Math.sin(t * 0.35 + p.ph * 0.8) * 1.1;
       p.x = fromX + (p.tx + p.ox + jx - fromX) * hold;
       p.y = fromY + (p.ty + p.oy + jy - fromY) * hold;
       p.z = fromZ + (p.tz + p.oz + jz - fromZ) * hold;
@@ -230,11 +249,13 @@ export function tickDust(now) {
 function drawFieldLinks() {}
 
 export function drawWorld() {
+  beginView();
   ctx.clearRect(0, 0, innerWidth, innerHeight);
   ctx.fillStyle = "#1a1814";
   ctx.strokeStyle = "rgba(22, 21, 19, 0.45)";
   const hold = titleHold();
   const scatter = 1 - hold;
+  const space = runtime.ready ? scatter : 0;
 
   motes.forEach((m) => {
     const a = project(m.x, m.y, m.z);
@@ -242,6 +263,7 @@ export function drawWorld() {
     const near = clamp((a.depth - 50) / 140, 0, 1);
     ctx.globalAlpha = Math.min(0.16, 90 / a.depth) * near;
     const size = Math.max(1.4, a.s * m.r * 0.62);
+    ctx.globalAlpha *= clamp(1.6 / size, 0.22, 1);
     ctx.save();
     ctx.translate(a.x, a.y);
     ctx.rotate(Math.PI / 4);
@@ -255,14 +277,18 @@ export function drawWorld() {
     if (p.glyph) {
       a.x += cam.lookX * TITLE_PARALLAX_X * (1 - scatter);
       a.y += cam.lookY * TITLE_PARALLAX_Y * (1 - scatter);
-      const near = clamp((a.depth - 24) / 160, 0.28, 1);
       const formed = 0.8;
-      const bg = Math.min(0.26, 90 / a.depth) * near;
+      const bg = clamp(0.2 + 90 / (a.depth + 28), 0.18, 0.5);
       const fade = runtime.ready
         ? formed * (1 - scatter) + bg * scatter
         : formed * (0.22 + 0.78 * hold);
-      ctx.globalAlpha = p.edge ? fade : fade * 0.5;
-      const r = titleDot * (p.edge ? 0.9 : 0.55) * (1 + scatter);
+      const formedR = titleDot * (p.edge ? 0.9 : 0.55);
+      const spaceR = clamp(a.s * (p.edge ? 0.038 : 0.024), 0.5, 2.6);
+      const r = runtime.ready
+        ? formedR * (1 - scatter) + spaceR * scatter
+        : formedR;
+      const sizeFade = runtime.ready ? clamp(0.7 / Math.max(r, 0.4), 0.28, 1) : 1;
+      ctx.globalAlpha = (p.edge ? fade : fade * (0.5 + 0.25 * scatter)) * sizeFade;
       ctx.beginPath();
       ctx.arc(a.x, a.y, r, 0, Math.PI * 2);
       ctx.fill();
@@ -274,6 +300,21 @@ export function drawWorld() {
     ctx.arc(a.x, a.y, Math.max(0.4, a.s * 0.01), 0, Math.PI * 2);
     ctx.fill();
   });
+
+  if (space > 0.03) {
+    const t = performance.now() / 1000;
+    ash.forEach((p) => {
+      const x = p.bx + Math.sin(t * 0.13 + p.ph) * p.amp;
+      const y = p.by + Math.cos(t * 0.1 + p.ph * 1.15) * p.amp * 0.75;
+      const z = p.bz + Math.sin(t * 0.08 + p.ph * 0.7) * p.amp * 1.15;
+      const a = project(x, y, z, 0);
+      if (!a) return;
+      const r = clamp(a.s * p.mass, 0.45, 4.2);
+      ctx.globalAlpha = space * clamp(0.1 + 55 / (a.depth + 18), 0.08, 0.48) * clamp(0.72 / r, 0.16, 1);
+      const d = r * 2;
+      ctx.fillRect(a.x - r, a.y - r, d, d);
+    });
+  }
 
   drawFieldLinks();
   ctx.globalAlpha = 1;

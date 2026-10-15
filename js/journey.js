@@ -1,12 +1,11 @@
 import { cam, runtime } from "./state.js";
 import {
   PATH_MAX,
-  HOLD_TICKS,
-  HOLD_KEYS,
   NAV_STOPS,
+  VEL_MAX,
   stopAt,
   stopByKey,
-} from "./data.js?v=rail-work";
+} from "./data.js?v=damp10";
 import { poseAt } from "./camera.js";
 import { layoutBeacons } from "./holo.js?v=contact-name";
 import { clamp } from "./util.js";
@@ -15,12 +14,40 @@ const body = document.body;
 const title = document.querySelector(".fly-title");
 const gateUi = [...document.querySelectorAll(".gate-ui")];
 
-const holdState = {
-  resume: { count: 0, armed: true },
-  software: { count: 0, armed: true },
-  works: { count: 0, armed: true },
-  tools: { count: 0, armed: true },
-};
+const SNAP_IDLE = 280;
+const SNAP_DIST = 0.45;
+const COAST_DAMP = 0.9;
+const REST_VEL = 0.00045;
+const WHEEL_BOOST = 1;
+
+let ride = null;
+let lastTick = 0;
+let lastInput = 0;
+
+function easeInOut(u) {
+  return u < 0.5 ? 2 * u * u : 1 - ((-2 * u + 2) ** 2) / 2;
+}
+
+function durationFor(dist) {
+  return clamp(480 + dist * 70, 500, 900);
+}
+
+function setRide(to, durScale = 1) {
+  to = clamp(to, 0, PATH_MAX);
+  if (Math.abs(to - cam.progress) < 0.012) {
+    cam.progress = to;
+    cam.vel = 0;
+    cam.target = to;
+    ride = null;
+    return;
+  }
+  ride = {
+    from: cam.progress,
+    to,
+    start: performance.now(),
+    dur: durationFor(Math.abs(to - cam.progress)) * durScale,
+  };
+}
 
 export function setPhase(name) {
   if (runtime.phase === name) return;
@@ -49,32 +76,98 @@ export function applyProgress(t) {
   layoutBeacons();
   syncRail(t);
   if (!runtime.ready) return;
-  if (cam.target >= 4 || t >= 3.1) setPhase("is-station");
-  else setPhase("is-gate");
+  if (runtime.phase === "is-station") {
+    if (t < 2.35) setPhase("is-gate");
+  } else if (t >= 3.1) {
+    setPhase("is-station");
+  }
 }
 
-function parkAt(stop) {
-  cam.target = stop.at;
-  if (cam.progress > stop.at) cam.progress = stop.at;
-  if (cam.vel > 0) cam.vel = 0;
+function busy() {
+  return !runtime.ready || body.classList.contains("is-peek");
 }
 
-function armHoldsForJump(key) {
-  const dest = stopByKey(key);
-  HOLD_KEYS.forEach((holdKey) => {
-    const stop = stopByKey(holdKey);
-    const hold = holdState[holdKey];
-    if (!stop || !hold) return;
-    hold.count = 0;
-    hold.armed = !dest || dest.at <= stop.at;
-  });
+function snapTarget(t) {
+  let best = null;
+  let bestD = Infinity;
+  for (const stop of NAV_STOPS) {
+    if (stop.key === "gate") continue;
+    if (stop.until != null) {
+      if (t >= stop.at && t <= stop.until) return null;
+      const pt = t < stop.at ? stop.at : stop.until;
+      const d = Math.abs(t - pt);
+      if (d < bestD) {
+        bestD = d;
+        best = pt;
+      }
+    } else {
+      const d = Math.abs(t - stop.at);
+      if (d < bestD) {
+        bestD = d;
+        best = stop.at;
+      }
+    }
+  }
+  if (best == null || bestD < 0.02 || bestD > SNAP_DIST) return null;
+  return best;
 }
 
 export function jumpTo(key) {
   const stop = stopByKey(key);
-  if (!runtime.ready || !stop) return;
-  armHoldsForJump(key);
-  cam.target = stop.at;
+  if (busy() || !stop) return;
+  lastInput = performance.now();
+  cam.vel = 0;
+  setRide(stop.at);
+}
+
+export function flick(impulse) {
+  if (busy() || !impulse) return;
+  lastInput = performance.now();
+  ride = null;
+  cam.vel = clamp(cam.vel + impulse * WHEEL_BOOST, -VEL_MAX, VEL_MAX);
+}
+
+export function drag(delta) {
+  if (busy() || !delta) return;
+  lastInput = performance.now();
+  ride = null;
+  cam.progress = clamp(cam.progress + delta, 0, PATH_MAX);
+  cam.vel = clamp(delta, -VEL_MAX, VEL_MAX);
+  cam.target = cam.progress;
+}
+
+export function tickMotion(now) {
+  const t = now || performance.now();
+  const dt = lastTick ? Math.min(0.033, (t - lastTick) / 1000) : 0.016;
+  lastTick = t;
+  const prev = cam.progress;
+  const frames = dt * 60;
+
+  if (ride) {
+    const u = clamp((t - ride.start) / Math.max(ride.dur, 1), 0, 1);
+    const next = clamp(ride.from + (ride.to - ride.from) * easeInOut(u), 0, PATH_MAX);
+    cam.progress = next;
+    cam.vel = next - prev;
+    if (u >= 1) {
+      cam.progress = clamp(ride.to, 0, PATH_MAX);
+      cam.vel = 0;
+      ride = null;
+    }
+  } else {
+    cam.progress = clamp(cam.progress + cam.vel, 0, PATH_MAX);
+    cam.vel *= COAST_DAMP ** frames;
+    if (cam.progress <= 0 && cam.vel < 0) cam.vel = 0;
+    if (cam.progress >= PATH_MAX && cam.vel > 0) cam.vel = 0;
+    if (Math.abs(cam.vel) < REST_VEL) cam.vel = 0;
+    if (!cam.vel && t - lastInput > SNAP_IDLE) {
+      const at = snapTarget(cam.progress);
+      if (at != null) setRide(at, 0.85);
+    }
+  }
+
+  cam.target = ride ? ride.to : cam.progress;
+  const vzNow = Math.abs(cam.progress - prev) * PATH_MAX;
+  cam.vz += (vzNow - cam.vz) * 0.22;
 }
 
 function setActiveNav(key) {
@@ -110,55 +203,6 @@ function syncRail(t) {
     if (seg) seg.style.setProperty("--seg", `${fill * 100}%`);
   });
   setActiveNav(current.key);
-}
-
-export function nudge(delta) {
-  if (!runtime.ready || body.classList.contains("is-peek")) return;
-  const from = cam.target;
-  const to = clamp(from + delta, 0, PATH_MAX);
-
-  if (delta > 0) {
-    for (const key of HOLD_KEYS) {
-      const stop = stopByKey(key);
-      const hold = holdState[key];
-      if (!stop || !hold) continue;
-      if (from < stop.at && to >= stop.at) {
-        hold.count = 0;
-        hold.armed = true;
-        parkAt(stop);
-        return;
-      }
-    }
-  } else {
-    HOLD_KEYS.forEach((key) => {
-      const stop = stopByKey(key);
-      const hold = holdState[key];
-      if (!stop || !hold) return;
-      hold.count = 0;
-      if (to <= stop.at) hold.armed = true;
-    });
-  }
-
-  cam.target = to;
-}
-
-export function holdStationWheel(delta) {
-  if (delta <= 0) return false;
-  for (const key of HOLD_KEYS) {
-    const stop = stopByKey(key);
-    const hold = holdState[key];
-    if (!stop || !hold || !hold.armed || cam.target < stop.at - 0.05) continue;
-    if (cam.target > stop.at + 0.2) continue;
-    hold.count += 1;
-    if (hold.count < HOLD_TICKS) {
-      parkAt(stop);
-      return true;
-    }
-    hold.armed = false;
-    hold.count = 0;
-    return false;
-  }
-  return false;
 }
 
 export function bindNav() {

@@ -50,12 +50,10 @@ export const cards = {
 };
 
 export const PATH_MAX = 24;
-export const WHEEL_STEP = 0.15;
+export const WHEEL_SCALE = 0.00008;
 export const TOUCH_SCALE = 0.05;
-export const KEY_STEP = 0.8;
-export const ENTER_STEP = 4.5;
-export const HOLD_TICKS = 3;
-export const HOLD_KEYS = ["resume", "software", "works", "tools"];
+export const KEY_IMPULSE = 0.28;
+export const VEL_MAX = 0.38;
 export const NAV_STOPS = [
   { key: "gate", at: 0, label: "00 本站入口", short: "00 入口" },
   { key: "resume", at: 4.5, label: "CV 个人简历", short: "CV 简历" },

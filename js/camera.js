@@ -17,6 +17,8 @@ export function sample(keys, t) {
   return last[1];
 }
 
+let view = null;
+
 export function poseAt(t) {
   const deg = Math.PI / 180;
   cam.x = sample(px, t) * SPACE;
@@ -26,33 +28,56 @@ export function poseAt(t) {
   cam.ry = sample(ryk, t) * deg;
 }
 
+export function beginView() {
+  view = {
+    cy: Math.cos(-cam.ry),
+    sy: Math.sin(-cam.ry),
+    cx: Math.cos(-cam.rx),
+    sx: Math.sin(-cam.rx),
+    camx: cam.x,
+    camy: cam.y,
+    camz: cam.z,
+    focal: Math.min(innerWidth, innerHeight) * 0.92,
+    hw: innerWidth / 2,
+    hh: innerHeight * 0.48,
+  };
+}
+
 export function project(wx, wy, wz, lookScale = 1) {
-  let x = wx * SPACE - cam.x;
-  let y = wy * SPACE - cam.y;
-  let z = wz * SPACE - cam.z;
-  const cy = Math.cos(-cam.ry);
-  const sy = Math.sin(-cam.ry);
+  const v = view;
+  let x = wx * SPACE - (v ? v.camx : cam.x);
+  let y = wy * SPACE - (v ? v.camy : cam.y);
+  let z = wz * SPACE - (v ? v.camz : cam.z);
+  const cy = v ? v.cy : Math.cos(-cam.ry);
+  const sy = v ? v.sy : Math.sin(-cam.ry);
   const x1 = x * cy - z * sy;
   let z1 = x * sy + z * cy;
-  const cx = Math.cos(-cam.rx);
-  const sx = Math.sin(-cam.rx);
+  const cx = v ? v.cx : Math.cos(-cam.rx);
+  const sx = v ? v.sx : Math.sin(-cam.rx);
   const y1 = y * cx - z1 * sx;
   const z2 = y * sx + z1 * cx;
-  const lx = -cam.lookY * 0.32 * lookScale;
-  const ly = -cam.lookX * 0.22 * lookScale;
-  const clx = Math.cos(-lx);
-  const slx = Math.sin(-lx);
-  const y2 = y1 * clx - z2 * slx;
-  const z3 = y1 * slx + z2 * clx;
-  const cly = Math.cos(-ly);
-  const sly = Math.sin(-ly);
-  const x2 = x1 * cly - z3 * sly;
-  const z4 = x1 * sly + z3 * cly;
+  let x2 = x1;
+  let y2 = y1;
+  let z4 = z2;
+  if (lookScale) {
+    const lx = -cam.lookY * 0.32 * lookScale;
+    const ly = -cam.lookX * 0.22 * lookScale;
+    const clx = Math.cos(-lx);
+    const slx = Math.sin(-lx);
+    y2 = y1 * clx - z2 * slx;
+    const z3 = y1 * slx + z2 * clx;
+    const cly = Math.cos(-ly);
+    const sly = Math.sin(-ly);
+    x2 = x1 * cly - z3 * sly;
+    z4 = x1 * sly + z3 * cly;
+  }
   if (z4 < 12) return null;
-  const focal = Math.min(innerWidth, innerHeight) * 0.92;
+  const focal = v ? v.focal : Math.min(innerWidth, innerHeight) * 0.92;
+  const hw = v ? v.hw : innerWidth / 2;
+  const hh = v ? v.hh : innerHeight * 0.48;
   return {
-    x: innerWidth / 2 + (x2 * focal) / z4,
-    y: innerHeight * 0.48 + (y2 * focal) / z4,
+    x: hw + (x2 * focal) / z4,
+    y: hh + (y2 * focal) / z4,
     s: focal / z4,
     depth: z4,
   };
