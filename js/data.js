@@ -140,6 +140,12 @@ export const fields = {
       { name: "", img: "images/SLG_8.jpg", pack: "slg" },
       { name: "", img: "images/SLG_9.jpg", pack: "slg" },
       { name: "", img: "images/SLG_10.jpg", pack: "slg" },
+      { name: "载具", img: "images/Tank_01.png", pack: "tank", sheet: true },
+      { name: "载具", img: "images/Tank_02.png", pack: "tank", sheet: true },
+      { name: "卡车", video: "xiaoguoMP4/卡车.mp4", pack: "clip" },
+      { name: "魔法研究所", img: "images/魔法研究所.jpg", video: "xiaoguoMP4/魔法研究所.mp4", poster: "images/魔法研究所.jpg", pack: "clip", sheet: true },
+      { name: "空间站", video: "xiaoguoMP4/空间站.mp4", pack: "clip" },
+      { name: "卡皮巴拉GO", video: "xiaoguoMP4/卡皮巴拉GO时间系统效果.mp4", pack: "clip" },
     ],
   },
   tools: {

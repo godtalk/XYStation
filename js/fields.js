@@ -1,7 +1,7 @@
 import { cam, runtime } from "./state.js";
-import { beaconWorld, fields, holoVisibility, stopByKey } from "./data.js?v=packs";
+import { beaconWorld, fields, holoVisibility, stopByKey } from "./data.js?v=wall4";
 import { clamp, hash01, isVideoSrc, mediaURL } from "./util.js";
-import { openPeek } from "./peek.js";
+import { openPeek } from "./peek.js?v=flow6";
 
 const station = document.getElementById("station");
 const fieldNodes = [];
@@ -77,9 +77,22 @@ function buildFields() {
       const poster = item.poster || (!videoSrc && item.img ? item.img : "");
       const src = mediaURL(videoSrc || poster || "");
       if (src) el.classList.add("has-img");
+      if (item.sheet) el.classList.add("is-sheet");
       if (videoSrc) el.classList.add("has-video");
       if (poster && !videoSrc) {
-        el.innerHTML = `<img src="${mediaURL(poster)}" alt="${item.name || "作品"}">${item.name ? `<span>${item.name}</span>` : ""}`;
+        if (group === "works") {
+          const img = document.createElement("img");
+          img.alt = item.name || "作品";
+          img.decoding = "async";
+          el.appendChild(img);
+          if (item.name) {
+            const label = document.createElement("span");
+            label.textContent = item.name;
+            el.appendChild(label);
+          }
+        } else {
+          el.innerHTML = `<img src="${mediaURL(poster)}" alt="${item.name || "作品"}" loading="lazy" decoding="async">${item.name ? `<span>${item.name}</span>` : ""}`;
+        }
       } else if (videoSrc) {
         const clip = document.createElement("video");
         clip.muted = true;
@@ -91,29 +104,43 @@ function buildFields() {
           label.textContent = item.name;
           el.appendChild(label);
         }
-        primeVideo(src);
-        warmClip(clip, src);
+        if (group === "works") {
+          clip.preload = "none";
+          clip.dataset.src = src;
+        } else {
+          primeVideo(src);
+          warmClip(clip, src);
+        }
         el.insertBefore(clip, el.firstChild);
         el.addEventListener("pointerenter", () => {
-          if (clip.parentElement !== el) return;
+          if (!el.contains(clip)) return;
+          if (clip.dataset.src && !clip.getAttribute("src")) {
+            clip.src = clip.dataset.src;
+            clip.load();
+          }
           clip.play().catch(() => {});
         });
         el.addEventListener("pointerleave", () => {
-          if (clip.parentElement !== el) return;
+          if (!el.contains(clip)) return;
           clip.pause();
-          clip.currentTime = 0;
         });
       } else {
         el.innerHTML = `<i></i>${item.name ? `<span>${item.name}</span>` : ""}`;
       }
+      if (group === "works") worksStrip().appendChild(el);
+      else station.appendChild(el);
+      const node = {
+        el, group, x: pos[0], y: pos[1], z: pos[2], size,
+        at: item.at, scale: item.s || 1, pack: item.pack || "",
+        src, isVideo: Boolean(videoSrc), name: item.name || "",
+        thumb: poster ? mediaURL(poster) : "",
+        loaded: false,
+        queued: false,
+      };
       if (src && group !== "software") {
         el.addEventListener("click", () => openPeek(src, item.name, el, Boolean(videoSrc)));
       }
-      station.appendChild(el);
-      fieldNodes.push({
-        el, group, x: pos[0], y: pos[1], z: pos[2], size,
-        at: item.at, scale: item.s || 1, pack: item.pack || "",
-      });
+      fieldNodes.push(node);
     });
   });
 }
@@ -127,6 +154,7 @@ function layoutFields() {
     const vis = runtime.phase === "is-station" ? holoVisibility(group, cam.progress) : 0;
     const nodes = fieldNodes.filter((node) => node.group === group);
     if (group === "software") layoutSoftware(nodes, vis, now, navW, areaW, areaH);
+    else if (group === "works") layoutWorks(nodes, vis, navW, areaW, areaH);
     else layoutWall(group, nodes, vis, navW, areaW, areaH);
   });
 }
@@ -137,6 +165,8 @@ const PACK_LABEL = {
   bug: "蚂蚱",
   qf: "QF",
   slg: "SLG",
+  tank: "载具",
+  clip: "效果视频",
 };
 
 function packLabelEl() {
@@ -147,6 +177,280 @@ function packLabelEl() {
   el.className = "pack-label";
   station.appendChild(el);
   return el;
+}
+
+const WALL_ROWS = 3;
+const WALL_VISIBLE = 8;
+const WALL_DAMP = 0.95;
+const WALL_REST = 0.12;
+const WALL_VEL_MAX = 56;
+const THUMB = 360;
+const LOAD_N = 3;
+
+const wall = {
+  px: 0,
+  vel: 0,
+  maxPx: 0,
+  step: 1,
+  colsTotal: WALL_VISIBLE,
+  held: false,
+  lastTick: 0,
+  lastInput: 0,
+  layoutKey: "",
+  boxKey: "",
+  visKey: -1,
+  tx: null,
+  seen: -1,
+  nodes: [],
+};
+
+const thumbCache = new Map();
+const loadQ = [];
+let loadBusy = 0;
+
+function worksFrame() {
+  let clip = document.getElementById("works-clip");
+  if (!clip) {
+    clip = document.createElement("div");
+    clip.id = "works-clip";
+    clip.className = "works-clip";
+    station.appendChild(clip);
+  }
+  let strip = clip.querySelector(".works-strip");
+  if (!strip) {
+    strip = document.createElement("div");
+    strip.className = "works-strip";
+    clip.appendChild(strip);
+  }
+  return { clip, strip };
+}
+
+function worksStrip() {
+  return worksFrame().strip;
+}
+
+async function bakeThumb(url) {
+  const hit = thumbCache.get(url);
+  if (hit) return hit;
+  const work = (async () => {
+    try {
+      const blob = await fetch(url).then((res) => {
+        if (!res.ok) throw new Error("thumb");
+        return res.blob();
+      });
+      const bmp = await createImageBitmap(blob);
+      const c = document.createElement("canvas");
+      c.width = THUMB;
+      c.height = THUMB;
+      const g = c.getContext("2d");
+      const s = Math.max(THUMB / bmp.width, THUMB / bmp.height);
+      g.drawImage(
+        bmp,
+        (THUMB - bmp.width * s) / 2,
+        (THUMB - bmp.height * s) / 2,
+        bmp.width * s,
+        bmp.height * s,
+      );
+      bmp.close();
+      return c.toDataURL("image/jpeg", 0.8);
+    } catch {
+      return url;
+    }
+  })();
+  thumbCache.set(url, work);
+  return work;
+}
+
+function pumpLoad() {
+  while (loadBusy < LOAD_N && loadQ.length) {
+    const node = loadQ.shift();
+    loadBusy += 1;
+    const img = node.el.querySelector("img");
+    const url = node.thumb;
+    if (!img || !url) {
+      node.loaded = true;
+      loadBusy -= 1;
+      continue;
+    }
+    bakeThumb(url)
+      .then((src) => {
+        if (img.src !== src) img.src = src;
+        node.loaded = true;
+      })
+      .catch(() => {
+        img.src = url;
+        node.loaded = true;
+      })
+      .finally(() => {
+        loadBusy -= 1;
+        pumpLoad();
+      });
+  }
+}
+
+function enqueueLoad(node, urgent) {
+  if (!node || node.loaded || node.queued || !node.thumb) return;
+  node.queued = true;
+  if (urgent) loadQ.unshift(node);
+  else loadQ.push(node);
+  pumpLoad();
+}
+
+function revealWall() {
+  const col = wall.px / Math.max(1, wall.step);
+  const start = Math.max(0, Math.floor(col) - 1);
+  const end = Math.min(wall.colsTotal, Math.ceil(col + WALL_VISIBLE + 1));
+  if (wall.seen === start && loadBusy) return;
+  wall.seen = start;
+  wall.nodes.forEach((node, i) => {
+    const c = i % wall.colsTotal;
+    if (c >= start && c < end) enqueueLoad(node, c < start + WALL_VISIBLE);
+  });
+}
+
+function tickWall(now) {
+  const dt = wall.lastTick ? Math.min(0.033, (now - wall.lastTick) / 1000) : 0.016;
+  wall.lastTick = now;
+  const frames = dt * 60;
+  wall.px += wall.vel;
+  wall.vel *= WALL_DAMP ** frames;
+  if (wall.px <= 0 && wall.vel < 0) {
+    wall.px = 0;
+    wall.vel = 0;
+  }
+  if (wall.px >= wall.maxPx && wall.vel > 0) {
+    wall.px = wall.maxPx;
+    wall.vel = 0;
+  }
+  if (Math.abs(wall.vel) < WALL_REST) wall.vel = 0;
+  wall.px = clamp(wall.px, 0, wall.maxPx);
+}
+
+function worksOpen() {
+  return runtime.phase === "is-station" && holoVisibility("works", cam.progress) >= 0.5;
+}
+
+export function spinWorks(dy) {
+  if (!dy || document.body.classList.contains("is-peek") || !worksOpen()) return false;
+  const atStart = wall.px <= 0.8 && wall.vel <= 0.2 && dy > 0;
+  const atEnd = wall.px >= wall.maxPx - 0.8 && wall.vel >= -0.2 && dy < 0;
+  if (atStart || atEnd) {
+    wall.held = false;
+    return false;
+  }
+  wall.held = true;
+  wall.lastInput = performance.now();
+  wall.vel = clamp(wall.vel - dy * 0.55, -WALL_VEL_MAX, WALL_VEL_MAX);
+  cam.vel = 0;
+  return true;
+}
+
+export function dragWorks(px) {
+  if (!px || document.body.classList.contains("is-peek") || !worksOpen()) return false;
+  const atStart = wall.px <= 0.8 && px < 0;
+  const atEnd = wall.px >= wall.maxPx - 0.8 && px > 0;
+  if (atStart || atEnd) {
+    wall.held = false;
+    return false;
+  }
+  wall.held = true;
+  wall.lastInput = performance.now();
+  wall.px = clamp(wall.px + px, 0, wall.maxPx);
+  wall.vel = clamp(px, -WALL_VEL_MAX, WALL_VEL_MAX);
+  cam.vel = 0;
+  return true;
+}
+
+function layoutWorks(nodes, vis, navW, areaW, areaH) {
+  const { clip, strip } = worksFrame();
+  if (!nodes.length) {
+    clip.style.opacity = "0";
+    return;
+  }
+  wall.nodes = nodes;
+  const padL = navW + 36;
+  const viewW = Math.max(280, innerWidth - padL - 40);
+  const viewH = Math.max(220, areaH - 8);
+  const gap = Math.max(6, Math.min(12, Math.round(viewW * 0.007)));
+  const cell = Math.max(
+    44,
+    Math.min(
+      (viewW - gap * (WALL_VISIBLE - 1)) / WALL_VISIBLE,
+      (viewH - 28 - gap * (WALL_ROWS - 1)) / WALL_ROWS,
+    ),
+  );
+  const colsTotal = Math.max(WALL_VISIBLE, Math.ceil(nodes.length / WALL_ROWS));
+  const step = cell + gap;
+  wall.step = step;
+  wall.colsTotal = colsTotal;
+  wall.maxPx = Math.max(0, (colsTotal - WALL_VISIBLE) * step);
+  const boxW = Math.round(WALL_VISIBLE * cell + (WALL_VISIBLE - 1) * gap);
+  const boxH = Math.round(WALL_ROWS * cell + (WALL_ROWS - 1) * gap);
+  const cx = padL + viewW / 2;
+  const cy = innerHeight * 0.52;
+  const boxKey = `${Math.round(cx)}:${Math.round(cy)}:${boxW}:${boxH}`;
+  if (wall.boxKey !== boxKey) {
+    wall.boxKey = boxKey;
+    clip.style.left = `${Math.round(cx - boxW / 2)}px`;
+    clip.style.top = `${Math.round(cy - boxH / 2)}px`;
+    clip.style.width = `${boxW}px`;
+    clip.style.height = `${boxH}px`;
+  }
+
+  if (vis < 0.08) {
+    wall.held = false;
+    if (wall.visKey !== 0) {
+      wall.visKey = 0;
+      clip.style.opacity = "0";
+      clip.style.pointerEvents = "none";
+    }
+    return;
+  }
+
+  tickWall(performance.now());
+  if (vis < 0.5) wall.held = false;
+  if (wall.held) cam.vel = 0;
+
+  if (wall.visKey !== vis) {
+    wall.visKey = vis;
+    clip.style.opacity = String(vis);
+    clip.style.pointerEvents = vis > 0.28 ? "auto" : "none";
+  }
+
+  const layoutKey = `${Math.round(cell)}:${nodes.length}`;
+  if (wall.layoutKey !== layoutKey) {
+    wall.layoutKey = layoutKey;
+    wall.seen = -1;
+    const cellPx = `${Math.round(cell)}px`;
+    nodes.forEach((node, i) => {
+      const row = Math.floor(i / colsTotal);
+      const col = i % colsTotal;
+      node.el.classList.remove("is-flow", "is-center");
+      node.el.classList.add("is-wall");
+      node.el.style.setProperty("--plate", cellPx);
+      node.el.style.setProperty("--plate-h", cellPx);
+      node.el.style.width = cellPx;
+      node.el.style.height = cellPx;
+      node.el.style.left = `${Math.round(col * step)}px`;
+      node.el.style.top = `${Math.round(row * step)}px`;
+      node.el.style.transform = "none";
+      node.el.style.opacity = "1";
+      node.el.style.pointerEvents = "auto";
+      node.el.style.zIndex = "8";
+      if (node.el.parentElement !== strip) strip.appendChild(node.el);
+    });
+    strip.style.width = `${Math.round(colsTotal * cell + (colsTotal - 1) * gap)}px`;
+    strip.style.height = `${boxH}px`;
+  }
+
+  const tx = -wall.px;
+  if (wall.tx !== tx) {
+    wall.tx = tx;
+    strip.style.transform = `translate3d(${tx}px,0,0)`;
+    revealWall();
+  } else if (wall.seen < 0) {
+    revealWall();
+  }
 }
 
 function splitPages(nodes, perPage) {
@@ -179,6 +483,7 @@ function paintCard(node, x, y, cellW, cellH, fade, scale, yaw) {
   node.el.style.setProperty("--plate", `${pw}px`);
   node.el.style.setProperty("--plate-h", `${ph}px`);
   node.el.style.width = `${pw}px`;
+  node.el.style.height = `${ph}px`;
   const media = node.el.querySelector("img, video, .peek-hole");
   if (media) {
     media.style.width = `${pw}px`;

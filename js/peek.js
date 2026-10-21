@@ -17,7 +17,7 @@ function peekEls() {
 }
 
 function originThumb(el) {
-  return el?.querySelector("video, img, .peek-hole") || null;
+  return el?.querySelector(".flow-mask, video, img, .peek-hole") || null;
 }
 
 function originRect(el) {
@@ -217,6 +217,7 @@ export function openPeek(src, caption, originEl, isVideo = false) {
   const media = img;
   const run = () => {
     if (seq !== peekSeq) return;
+    body.classList.add("is-peek");
     peek.hidden = false;
     peek.classList.add("is-open", "is-on");
     placePeekFrame(frame, from, false);

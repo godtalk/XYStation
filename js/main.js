@@ -2,10 +2,10 @@ import { cam, runtime } from "./state.js";
 import { TOUCH_SCALE, KEY_IMPULSE, WHEEL_SCALE } from "./data.js?v=damp10";
 import { resizeView, spawnDust, tickDust, drawWorld } from "./dust.js?v=ash9";
 import { resizeVortex, drawVortex } from "./vortex.js";
-import { buildHolos, layoutBeacons } from "./holo.js?v=contact-name";
-import { buildFields } from "./fields.js?v=icon-fit";
-import { applyProgress, setPhase, flick, drag, jumpTo, tickMotion, bindNav } from "./journey.js?v=damp10";
-import { closePeek } from "./peek.js";
+import { buildHolos, layoutBeacons } from "./holo.js?v=wall4";
+import { buildFields, spinWorks, dragWorks } from "./fields.js?v=wall4";
+import { applyProgress, setPhase, flick, drag, jumpTo, tickMotion, bindNav } from "./journey.js?v=wall4";
+import { closePeek } from "./peek.js?v=flow6";
 
 const body = document.body;
 const pct = document.getElementById("pct");
@@ -21,7 +21,10 @@ async function boot() {
   runtime.boot = 0;
   if (document.fonts?.ready) {
     try {
-      await document.fonts.ready;
+      await Promise.race([
+        document.fonts.ready,
+        new Promise((resolve) => window.setTimeout(resolve, 1800)),
+      ]);
     } catch {
       /* keep going */
     }
@@ -58,11 +61,6 @@ function loop(now) {
   drawWorld();
   drawVortex(now);
   requestAnimationFrame(loop);
-}
-
-function wheelImpulse(event) {
-  const line = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? innerHeight : 1;
-  return -event.deltaY * line * WHEEL_SCALE;
 }
 
 function wheelInScrollableText(event) {
@@ -117,7 +115,10 @@ window.addEventListener(
   (event) => {
     if (wheelInScrollableText(event) || body.classList.contains("is-peek")) return;
     event.preventDefault();
-    flick(wheelImpulse(event));
+    const line = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? innerHeight : 1;
+    const dy = event.deltaY * line;
+    if (spinWorks(dy)) return;
+    flick(-dy * WHEEL_SCALE);
   },
   { passive: false },
 );
@@ -136,8 +137,10 @@ window.addEventListener(
     if (event.target.closest(".holo") || body.classList.contains("is-peek")) return;
     event.preventDefault();
     const y = event.touches[0].clientY;
-    drag((runtime.lastTouchY - y) * TOUCH_SCALE);
+    const dy = runtime.lastTouchY - y;
     runtime.lastTouchY = y;
+    if (dragWorks(dy)) return;
+    drag(dy * TOUCH_SCALE);
   },
   { passive: false },
 );

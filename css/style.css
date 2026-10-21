@@ -475,6 +475,12 @@ body {
   box-shadow: none;
 }
 
+.dot-work.has-img.is-sheet img,
+.dot-work.has-img.is-sheet video {
+  object-fit: contain;
+  background: #141210;
+}
+
 .dot-work.has-img span {
   font-size: 12px;
   letter-spacing: 0.1em;
@@ -482,6 +488,65 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.works-clip {
+  position: absolute;
+  overflow: hidden;
+  z-index: 8;
+  pointer-events: none;
+  contain: strict;
+  transform: translateZ(0);
+  background: transparent;
+}
+
+.works-strip {
+  position: absolute;
+  left: 0;
+  top: 0;
+  will-change: transform;
+  pointer-events: none;
+}
+
+.works-strip .dot {
+  pointer-events: auto;
+}
+
+.dot-work.is-wall {
+  gap: 0;
+  width: var(--plate, 120px);
+  height: var(--plate, 120px);
+  max-width: none;
+  overflow: hidden;
+  contain: layout paint;
+  background: #1a1814;
+  transform: translateZ(0);
+}
+
+.dot-work.is-wall span {
+  display: none;
+}
+
+.dot-work.is-wall img,
+.dot-work.is-wall video {
+  width: var(--plate, 120px) !important;
+  height: var(--plate, 120px) !important;
+  max-width: var(--plate, 120px) !important;
+  max-height: var(--plate, 120px) !important;
+  object-fit: cover;
+  background: #141210;
+}
+
+.dot-work.is-wall.is-sheet img,
+.dot-work.is-wall.is-sheet video {
+  object-fit: contain;
+}
+
+.dot-work.is-wall:hover img,
+.dot-work.is-wall:hover video,
+.dot-work.is-wall:focus-visible img,
+.dot-work.is-wall:focus-visible video {
+  filter: brightness(1.08);
 }
 
 .dot-soft.has-img {
