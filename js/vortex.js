@@ -1,4 +1,5 @@
 import { cam } from "./state.js";
+import { THEMES } from "./data.js?v=theme10";
 import { clamp, hash01, screenFit } from "./util.js";
 
 const ash = document.getElementById("ash");
@@ -36,6 +37,16 @@ uniform float uTime;
 uniform float uVis;
 uniform float uDpr;
 uniform float uScale;
+uniform float uConeInner;
+uniform float uConeOuter;
+uniform float uSizeInner;
+uniform float uSizeOuter;
+uniform float uSizePow;
+uniform float uPointMul;
+uniform float uUseScale;
+uniform float uPointMin;
+uniform float uPointMax;
+uniform float uReachAlpha;
 varying float vAlpha;
 
 vec2 flowStep(vec2 U, float i, float t, float ox) {
@@ -50,7 +61,7 @@ void main() {
   float heading = (id + 0.5) * 6.283185 / beams;
   float travel = mix(-2.21, 2.21, along);
   float fromCenter = clamp(abs(travel) / 2.21, 0.0, 1.0);
-  float cone = mix(0.06, 2.16, fromCenter);
+  float cone = mix(uConeInner, uConeOuter, fromCenter);
   float thick = (across - 0.5) * cone;
   vec2 dir = vec2(cos(heading), sin(heading));
   vec2 nrm = vec2(-dir.y, dir.x);
@@ -80,9 +91,10 @@ void main() {
   float reach = smoothstep(0.0, 2.05, rad);
   float core = mix(0.7, 1.0, smoothstep(0.5, 0.05, abs(across - 0.5)));
   float ends = smoothstep(0.0, 0.07, along) * smoothstep(1.0, 0.93, along);
-  vAlpha = core * ends * uVis * (0.21 + 0.44 * w) * (0.48 + 0.45 * aSeed) * mix(0.3, 1.0, reach);
-  float sizeTaper = mix(0.55, 1.2, reach);
-  gl_PointSize = clamp((1.25 + w * 2.2) * sizeTaper * uDpr * 1.5 * uScale, 0.55, 14.0);
+  vAlpha = core * ends * uVis * (0.21 + 0.44 * w) * (0.48 + 0.45 * aSeed) * mix(uReachAlpha, 1.0, reach);
+  float sizeTaper = mix(uSizeInner, uSizeOuter, pow(reach, uSizePow));
+  float grow = mix(1.0, uScale, uUseScale);
+  gl_PointSize = clamp((1.25 + w * 2.2) * sizeTaper * uDpr * uPointMul * grow, uPointMin, uPointMax);
   vec2 screen = p * uRadius + uOrigin;
   gl_Position = vec4(
     screen.x / uResolution.x * 2.0,
@@ -96,14 +108,35 @@ void main() {
 const VORTEX_FRAG = `
 precision mediump float;
 varying float vAlpha;
+uniform vec3 uColor;
 void main() {
   vec2 p = gl_PointCoord * 2.0 - 1.0;
   float d = dot(p, p);
   if (d > 1.0) discard;
   float soft = smoothstep(1.0, 0.15, d);
-  gl_FragColor = vec4(0.26, 0.24, 0.21, vAlpha * soft);
+  gl_FragColor = vec4(uColor, vAlpha * soft);
 }
 `;
+
+function themeName() {
+  return document.documentElement.dataset.theme === "light" ? "light" : "dark";
+}
+
+function themeLook() {
+  return THEMES[themeName()] || THEMES.dark;
+}
+
+function themeRgb() {
+  const raw = (themeLook().dust || "#ffffff").replace("#", "");
+  if (raw.length === 6) {
+    return [
+      parseInt(raw.slice(0, 2), 16) / 255,
+      parseInt(raw.slice(2, 4), 16) / 255,
+      parseInt(raw.slice(4, 6), 16) / 255,
+    ];
+  }
+  return [1, 1, 1];
+}
 
 function compileShader(type, source) {
   const shader = ashGl.createShader(type);
@@ -118,7 +151,7 @@ function compileShader(type, source) {
 
 function initVortex() {
   if (!ashGl) return;
-  if (vortex.program && vortex.shaderRev === 4) return;
+  if (vortex.program && vortex.shaderRev === 7) return;
   if (vortex.program) {
     ashGl.deleteProgram(vortex.program);
     vortex.program = null;
@@ -141,7 +174,18 @@ function initVortex() {
   vortex.vis = ashGl.getUniformLocation(program, "uVis");
   vortex.dpr = ashGl.getUniformLocation(program, "uDpr");
   vortex.scale = ashGl.getUniformLocation(program, "uScale");
-  vortex.shaderRev = 4;
+  vortex.color = ashGl.getUniformLocation(program, "uColor");
+  vortex.coneInner = ashGl.getUniformLocation(program, "uConeInner");
+  vortex.coneOuter = ashGl.getUniformLocation(program, "uConeOuter");
+  vortex.sizeInner = ashGl.getUniformLocation(program, "uSizeInner");
+  vortex.sizeOuter = ashGl.getUniformLocation(program, "uSizeOuter");
+  vortex.sizePow = ashGl.getUniformLocation(program, "uSizePow");
+  vortex.pointMul = ashGl.getUniformLocation(program, "uPointMul");
+  vortex.useScale = ashGl.getUniformLocation(program, "uUseScale");
+  vortex.pointMin = ashGl.getUniformLocation(program, "uPointMin");
+  vortex.pointMax = ashGl.getUniformLocation(program, "uPointMax");
+  vortex.reachAlpha = ashGl.getUniformLocation(program, "uReachAlpha");
+  vortex.shaderRev = 7;
   vortex.aUv = ashGl.getAttribLocation(program, "aUv");
   vortex.aSeed = ashGl.getAttribLocation(program, "aSeed");
   ashGl.enable(ashGl.BLEND);
@@ -153,11 +197,18 @@ function buildVortex() {
   if (!ashGl) return;
   initVortex();
   if (!vortex.program) return;
+  const look = themeLook().vortex;
   const { density, short } = screenFit();
-  const span = short * 0.92;
-  const segments = Math.round(clamp((span / 1.55) * density, 160, 580));
-  if (vortex.segments === segments && vortex.rev === 4) return;
-  vortex.rev = 4;
+  const name = themeName();
+  let segments;
+  if (look.lockCount) {
+    segments = Math.round(clamp(260 * clamp(density, 0.8, 1.05), look.segmentsMin, look.segmentsMax));
+  } else {
+    const span = short * 0.92;
+    segments = Math.round(clamp((span / 1.55) * density, look.segmentsMin, look.segmentsMax));
+  }
+  if (vortex.segments === segments && vortex.lookKey === name) return;
+  vortex.lookKey = name;
   vortex.segments = segments;
   const count = segments * segments;
   vortex.count = count;
@@ -219,5 +270,23 @@ export function drawVortex(now) {
   ashGl.uniform1f(vortex.vis, vis);
   ashGl.uniform1f(vortex.dpr, dpr);
   ashGl.uniform1f(vortex.scale, clamp(fit.short / 1080, 0.72, 1.85));
+  const look = themeLook().vortex;
+  ashGl.uniform1f(vortex.coneInner, look.coneInner);
+  ashGl.uniform1f(vortex.coneOuter, look.coneOuter);
+  ashGl.uniform1f(vortex.sizeInner, look.sizeInner);
+  ashGl.uniform1f(vortex.sizeOuter, look.sizeOuter);
+  ashGl.uniform1f(vortex.sizePow, look.sizePow);
+  ashGl.uniform1f(vortex.pointMul, look.pointMul);
+  ashGl.uniform1f(vortex.useScale, look.useScale);
+  ashGl.uniform1f(vortex.pointMin, look.pointMin);
+  ashGl.uniform1f(vortex.pointMax, look.pointMax);
+  ashGl.uniform1f(vortex.reachAlpha, look.reachAlpha);
+  const rgb = themeRgb();
+  ashGl.uniform3f(vortex.color, rgb[0], rgb[1], rgb[2]);
   ashGl.drawArrays(ashGl.POINTS, 0, vortex.count);
+}
+
+export function refreshVortex() {
+  vortex.lookKey = "";
+  buildVortex();
 }

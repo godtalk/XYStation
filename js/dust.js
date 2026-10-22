@@ -1,4 +1,4 @@
-import { beginView, project } from "./camera.js?v=ash9";
+import { beginView, project } from "./camera.js?v=night1";
 import { cam, runtime } from "./state.js";
 import { SPACE } from "./data.js";
 import { clamp, screenFit } from "./util.js";
@@ -248,11 +248,22 @@ export function tickDust(now) {
 
 function drawFieldLinks() {}
 
+function dustTint() {
+  const style = getComputedStyle(document.documentElement);
+  return {
+    fill: style.getPropertyValue("--dust").trim() || "#ffffff",
+    stroke: style.getPropertyValue("--dust-stroke").trim() || "rgba(255, 255, 255, 0.42)",
+    title: style.getPropertyValue("--title-dust").trim() || "#ffffff",
+    titleScale: Number.parseFloat(style.getPropertyValue("--title-scale")) || 1,
+  };
+}
+
 export function drawWorld() {
   beginView();
   ctx.clearRect(0, 0, innerWidth, innerHeight);
-  ctx.fillStyle = "#1a1814";
-  ctx.strokeStyle = "rgba(22, 21, 19, 0.45)";
+  const tint = dustTint();
+  ctx.fillStyle = tint.fill;
+  ctx.strokeStyle = tint.stroke;
   const hold = titleHold();
   const scatter = 1 - hold;
   const space = runtime.ready ? scatter : 0;
@@ -282,16 +293,18 @@ export function drawWorld() {
       const fade = runtime.ready
         ? formed * (1 - scatter) + bg * scatter
         : formed * (0.22 + 0.78 * hold);
-      const formedR = titleDot * (p.edge ? 0.9 : 0.55);
+      const formedR = titleDot * (p.edge ? 0.9 : 0.55) * tint.titleScale;
       const spaceR = clamp(a.s * (p.edge ? 0.038 : 0.024), 0.5, 2.6);
       const r = runtime.ready
         ? formedR * (1 - scatter) + spaceR * scatter
         : formedR;
       const sizeFade = runtime.ready ? clamp(0.7 / Math.max(r, 0.4), 0.28, 1) : 1;
       ctx.globalAlpha = (p.edge ? fade : fade * (0.5 + 0.25 * scatter)) * sizeFade;
+      ctx.fillStyle = tint.title;
       ctx.beginPath();
       ctx.arc(a.x, a.y, r, 0, Math.PI * 2);
       ctx.fill();
+      ctx.fillStyle = tint.fill;
       return;
     }
     const near = clamp((a.depth - 50) / 140, 0, 1);

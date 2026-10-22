@@ -1,10 +1,49 @@
-:root {
+:root,
+html[data-theme="dark"] {
+  --paper: #080c14;
+  --ink: #f5f8fc;
+  --muted: #c8d2de;
+  --line: #2a3544;
+  --accent: #c45a28;
+  --hint-bottom: 72px;
+  --glow-spot: #152033;
+  --glow-mid: #0c1420;
+  --vignette-mid: rgba(6, 10, 18, 0.55);
+  --vignette-edge: rgba(2, 4, 10, 0.94);
+  --vignette-in: 22%;
+  --vignette-mid-stop: 58%;
+  --holo-fill: rgba(8, 12, 20, 0.72);
+  --rail-fill: rgba(8, 12, 20, 0.92);
+  --plate-fill: #111820;
+  --on-photo: #f5f8fc;
+  --dust: #9eb1c7;
+  --dust-stroke: rgba(158, 177, 199, 0.42);
+  --title-dust: #ffffff;
+  --title-scale: 1;
+  --grain-opacity: 0.12;
+  --hud-blend: normal;
+}
+
+html[data-theme="light"] {
   --paper: #e7e2d6;
   --ink: #161513;
   --muted: #6f6a60;
   --line: #b7b09f;
-  --accent: #c45a28;
-  --hint-bottom: 72px;
+  --glow-spot: #f6f1e6;
+  --glow-mid: #efe8d8;
+  --vignette-mid: rgba(22, 21, 19, 0.16);
+  --vignette-edge: rgba(16, 13, 10, 0.55);
+  --vignette-in: 34%;
+  --vignette-mid-stop: 68%;
+  --holo-fill: rgba(231, 226, 214, 0.72);
+  --rail-fill: rgba(231, 226, 214, 0.92);
+  --plate-fill: #ddd7c9;
+  --on-photo: #e7e2d6;
+  --dust: #1a1814;
+  --dust-stroke: rgba(22, 21, 19, 0.45);
+  --title-dust: #1a1814;
+  --title-scale: 2;
+  --hud-blend: multiply;
 }
 
 * {
@@ -42,13 +81,13 @@ body {
 .glow {
   z-index: 0;
   background:
-    radial-gradient(circle at var(--mx, 50%) var(--my, 46%), #f6f1e6 0%, transparent 38%),
-    radial-gradient(circle at 50% 46%, #efe8d8 0%, var(--paper) 62%);
+    radial-gradient(circle at var(--mx, 50%) var(--my, 46%), var(--glow-spot) 0%, transparent 42%),
+    radial-gradient(circle at 50% 46%, var(--glow-mid) 0%, var(--paper) 64%);
 }
 
 .grain {
   z-index: 2;
-  opacity: 0.12;
+  opacity: var(--grain-opacity);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
@@ -63,10 +102,10 @@ body {
   pointer-events: none;
   background:
     radial-gradient(ellipse 78% 70% at 50% 46%,
-      rgba(22, 21, 19, 0) 34%,
-      rgba(22, 21, 19, 0.16) 68%,
-      rgba(16, 13, 10, 0.55) 100%);
-  mix-blend-mode: multiply;
+      transparent var(--vignette-in, 34%),
+      var(--vignette-mid) var(--vignette-mid-stop, 68%),
+      var(--vignette-edge) 100%);
+  mix-blend-mode: var(--hud-blend, multiply);
 }
 
 .hud,
@@ -85,8 +124,42 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: 22px 32px;
-  z-index: 5;
-  mix-blend-mode: multiply;
+  z-index: 8;
+  mix-blend-mode: var(--hud-blend, multiply);
+}
+
+.theme-switch {
+  isolation: isolate;
+  mix-blend-mode: normal;
+  background: none;
+  border: 0;
+  color: var(--ink);
+  cursor: pointer;
+  font-family: "Chivo Mono", monospace;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  text-transform: uppercase;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.theme-switch span {
+  color: var(--muted);
+}
+
+.theme-switch .theme-sep {
+  color: var(--line);
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+html[data-theme="light"] .theme-switch .theme-light,
+html[data-theme="dark"] .theme-switch .theme-dark {
+  color: var(--accent);
 }
 
 .brand,
@@ -110,6 +183,7 @@ body {
   display: flex;
   gap: 18px;
   color: var(--muted);
+  font-size: 16px;
 }
 
 .brand {
@@ -117,13 +191,14 @@ body {
   align-items: center;
   gap: 10px;
   font-family: Syne, sans-serif;
+  font-size: 16px;
   font-weight: 800;
   letter-spacing: 0.16em;
 }
 
 .mark {
-  width: 18px;
-  height: 10px;
+  width: 22px;
+  height: 12px;
   border-top: 1.5px solid var(--ink);
   border-bottom: 1.5px solid var(--ink);
   position: relative;
@@ -163,7 +238,7 @@ body {
 .gate {
   perspective: 640px;
   transform-style: preserve-3d;
-  z-index: 4;
+  z-index: 8;
 }
 
 .boot {
@@ -251,6 +326,10 @@ body {
   top: 88px;
   left: 50%;
   transform: translateX(-50%);
+  color: var(--ink);
+  font-size: 18px;
+  letter-spacing: 0.18em;
+  white-space: nowrap;
 }
 
 .gate-ui {
@@ -437,7 +516,7 @@ body {
   min-height: 0;
   object-fit: cover;
   border: 0;
-  background: #ddd7c9;
+  background: var(--plate-fill);
 }
 
 .dot.has-img span {
@@ -577,7 +656,13 @@ body {
   border: 0;
   -webkit-mask-image: none;
   mask-image: none;
-  transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.28s ease;
+  transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.28s ease, box-shadow 0.28s ease;
+}
+
+html[data-theme="dark"] .dot-soft.has-img img {
+  background: transparent;
+  filter: drop-shadow(0 0 calc(var(--soft, 178px) * 0.28) rgba(255, 255, 255, 0.35))
+    drop-shadow(0 0 calc(var(--soft, 178px) * 0.55) rgba(255, 255, 255, 0.35));
 }
 
 .dot-soft.has-img span {
@@ -596,6 +681,13 @@ body {
 .dot-soft.has-img:focus-visible img {
   transform: translateY(calc(var(--soft, 178px) * -0.045));
   filter: brightness(1.05);
+}
+
+html[data-theme="dark"] .dot-soft.has-img:hover img,
+html[data-theme="dark"] .dot-soft.has-img:focus-visible img {
+  filter: brightness(1.05)
+    drop-shadow(0 0 calc(var(--soft, 178px) * 0.28) rgba(255, 255, 255, 0.35))
+    drop-shadow(0 0 calc(var(--soft, 178px) * 0.55) rgba(255, 255, 255, 0.35));
 }
 
 .peek {
@@ -682,7 +774,7 @@ body {
   font-family: "Chivo Mono", monospace;
   font-size: 12px;
   letter-spacing: 0.18em;
-  color: var(--paper);
+  color: var(--ink);
   background: rgba(12, 12, 12, 0.55);
   pointer-events: none;
 }
@@ -727,7 +819,7 @@ body {
   font-family: "Chivo Mono", monospace;
   font-size: 12px;
   letter-spacing: 0.16em;
-  color: var(--paper);
+  color: var(--on-photo);
   opacity: 0;
   transition: opacity 0.22s ease;
 }
@@ -756,7 +848,7 @@ body {
   max-height: min(70vh, 620px);
   overflow: hidden;
   padding: 22px 24px 26px;
-  background: rgba(231, 226, 214, 0.72);
+  background: var(--holo-fill);
   border: 1px solid var(--line);
   backdrop-filter: blur(10px);
   z-index: 4;
@@ -806,7 +898,7 @@ body {
 
 .holo-body {
   line-height: 1.75;
-  color: #3a372f;
+  color: var(--ink);
 }
 
 .holo-body p + p {
@@ -969,7 +1061,7 @@ body {
 .cv-job.s3 b {
   font-size: clamp(13px, 0.9vw, 16px);
   font-weight: 500;
-  color: #3a372f;
+  color: var(--ink);
 }
 
 .cv-job.s3 .cv-time {
@@ -999,7 +1091,7 @@ body {
   margin: 0 0 6px;
   font-size: clamp(11px, 0.7vw, 12px);
   line-height: 1.4;
-  color: #6f6a60;
+  color: var(--muted);
 }
 
 .cv-job.s5 .cv-time {
@@ -1059,7 +1151,7 @@ body {
   max-height: 58vh;
   scrollbar-width: none;
   line-height: 1.75;
-  color: #3a372f;
+  color: var(--ink);
 }
 
 .float-scroll p + p {
@@ -1083,11 +1175,11 @@ body {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  z-index: 5;
+  z-index: 8;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.18s ease;
-  mix-blend-mode: multiply;
+  mix-blend-mode: var(--hud-blend, multiply);
 }
 
 .rail-short {
@@ -1173,6 +1265,10 @@ body {
 .rail-item span {
   color: var(--ink);
   opacity: 0.55;
+}
+
+html[data-theme="dark"] .rail-item span {
+  opacity: 0.82;
 }
 
 .rail-item:hover,
@@ -1304,7 +1400,7 @@ body.is-station .dot {
     padding: 14px 12px 16px;
     border-left: 0;
     border-top: 1px solid var(--line);
-    background: rgba(231, 226, 214, 0.92);
+    background: var(--rail-fill);
     mix-blend-mode: normal;
     z-index: 7;
   }

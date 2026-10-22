@@ -1,10 +1,11 @@
 import { cam, runtime } from "./state.js";
-import { TOUCH_SCALE, KEY_IMPULSE, WHEEL_SCALE } from "./data.js?v=damp10";
-import { resizeView, spawnDust, tickDust, drawWorld } from "./dust.js?v=ash9";
-import { resizeVortex, drawVortex } from "./vortex.js";
-import { buildHolos, layoutBeacons } from "./holo.js?v=split-wall2";
-import { buildFields, spinWorks, dragWorks } from "./fields.js?v=split-wall2";
-import { applyProgress, setPhase, flick, drag, jumpTo, tickMotion, bindNav } from "./journey.js?v=split-wall2";
+import { TOUCH_SCALE, KEY_IMPULSE, WHEEL_SCALE } from "./data.js?v=clips3";
+import { resizeView, spawnDust, tickDust, drawWorld } from "./dust.js?v=theme10";
+import { resizeVortex, drawVortex } from "./vortex.js?v=theme10";
+import { bindTheme } from "./theme.js?v=theme10";
+import { buildHolos, layoutBeacons } from "./holo.js?v=clips3";
+import { buildFields, spinWorks, dragWorks } from "./fields.js?v=clips3";
+import { applyProgress, setPhase, flick, drag, jumpTo, tickMotion, bindNav } from "./journey.js?v=clips3";
 import { closePeek } from "./peek.js?v=flow6";
 
 const body = document.body;
@@ -109,6 +110,7 @@ document.querySelectorAll("[data-go='gate']").forEach((el) => {
 });
 document.querySelector(".peek-mask").addEventListener("click", closePeek);
 bindNav();
+bindTheme();
 
 window.addEventListener(
   "wheel",

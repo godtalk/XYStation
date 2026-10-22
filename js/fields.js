@@ -1,5 +1,5 @@
 import { cam, runtime } from "./state.js";
-import { beaconWorld, fields, holoVisibility, stopByKey } from "./data.js?v=split-wall2";
+import { beaconWorld, fields, holoVisibility, stopByKey } from "./data.js?v=clips3";
 import { clamp, hash01, isVideoSrc, mediaURL } from "./util.js";
 import { openPeek } from "./peek.js?v=flow6";
 
@@ -90,7 +90,7 @@ function buildFields() {
       el.style.setProperty("--dot", `${8 + size * 8}px`);
       el.style.setProperty("--plate", `${96 + size * 54}px`);
       el.style.setProperty("--plate-h", `${60 + size * 32}px`);
-      const strip = group === "works" || group === "unity";
+      const strip = group === "works" || group === "blender" || group === "unity" || group === "tools";
       const videoSrc = item.video || (isVideoSrc(item.img) ? item.img : "");
       const poster = item.poster || (!videoSrc && item.img ? item.img : "");
       const src = mediaURL(videoSrc || poster || "");
@@ -122,13 +122,8 @@ function buildFields() {
           label.textContent = item.name;
           el.appendChild(label);
         }
-        if (strip) {
-          clip.preload = "none";
-          clip.dataset.src = src;
-        } else {
-          primeVideo(src);
-          warmClip(clip, src);
-        }
+        clip.preload = "none";
+        clip.dataset.src = src;
         el.insertBefore(clip, el.firstChild);
         el.addEventListener("pointerenter", () => {
           if (!el.contains(clip)) return;
@@ -169,7 +164,7 @@ function layoutFields() {
   const areaW = innerWidth - navW - 40;
   const areaH = innerHeight - 110;
   const lead = leadStrip();
-  ["software", "works", "unity", "tools"].forEach((group) => {
+  ["software", "works", "blender", "unity", "tools"].forEach((group) => {
     let vis = runtime.phase === "is-station" ? holoVisibility(group, cam.progress) : 0;
     if (STRIPS[group] && group !== lead) vis = 0;
     const nodes = fieldNodes.filter((node) => node.group === group);
@@ -187,6 +182,9 @@ const PACK_LABEL = {
   slg: "SLG",
   tank: "载具",
   clip: "效果视频",
+  blender: "Blender 效果",
+  unity: "Unity 效果",
+  tool: "工具",
 };
 
 function packLabelEl() {
@@ -201,7 +199,9 @@ function packLabelEl() {
 
 const STRIPS = {
   works: { rows: 3, visible: 8, aspect: 1 },
+  blender: { rows: 2, visible: 2, aspect: 16 / 9 },
   unity: { rows: 2, visible: 2, aspect: 16 / 9 },
+  tools: { rows: 1, visible: 2, aspect: 16 / 9 },
 };
 const WALL_DAMP = 0.95;
 const WALL_REST = 0.12;
@@ -230,7 +230,9 @@ function makeWall() {
 
 const walls = {
   works: makeWall(),
+  blender: makeWall(),
   unity: makeWall(),
+  tools: makeWall(),
 };
 
 const thumbCache = new Map();
@@ -330,7 +332,10 @@ function revealWall(wall, visible) {
   wall.seen = start;
   wall.nodes.forEach((node, i) => {
     const c = i % wall.colsTotal;
-    if (c >= start && c < end) enqueueLoad(node, c < start + visible);
+    if (c >= start && c < end) {
+      enqueueLoad(node, c < start + visible);
+      if (node.isVideo) showFrame(node.el.querySelector("video"));
+    }
   });
 }
 
@@ -464,11 +469,6 @@ function layoutStrip(group, nodes, vis, navW, areaW, areaH) {
   }
 
   tickWall(wall, performance.now());
-  if (vis > 0.2) {
-    nodes.forEach((node) => {
-      if (node.isVideo) showFrame(node.el.querySelector("video"));
-    });
-  }
   if (vis < 0.5) wall.held = false;
   if (wall.held) cam.vel = 0;
 
@@ -589,6 +589,7 @@ function placePage(page, cx, cy, cellW, cellH, gap, cols, fade, shiftX, lookX) {
     const x = ox + col * (cellW + gap) + cellW / 2;
     const y = oy + row * (cellH + gap + 22) + cellH / 2;
     paintCard(node, x, y, cellW, cellH, fade, scale, lookX * -6);
+    if (node.isVideo) showFrame(node.el.querySelector("video"));
   });
 }
 

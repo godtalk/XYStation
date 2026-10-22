@@ -1,18 +1,26 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>XYStation · 个人作品站</title>
     <meta name="description" content="XYStation 个人作品站 — 进入车站，查看停靠中的项目。" />
+    <script>
+      try {
+        var t = localStorage.getItem("xystation-theme");
+        document.documentElement.dataset.theme = t === "light" ? "light" : "dark";
+      } catch (e) {
+        document.documentElement.dataset.theme = "dark";
+      }
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Chivo+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;500;700&family=Syne:wght@700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="css/style.css?v=split-wall" />
-    <link rel="preload" as="video" href="mp4/MShader.mp4?v=fs1" />
+    <link rel="stylesheet" href="css/style.css?v=theme14" />
+    <link rel="preload" as="video" href="MP4/MP4_Tool/MShader.mp4?v=fs2" />
   </head>
   <body class="is-boot">
     <canvas id="view" aria-hidden="true"></canvas>
@@ -27,6 +35,11 @@
         XYSTATION
       </div>
       <div class="hud-right">
+        <button id="theme" class="theme-switch" type="button" aria-pressed="true" aria-label="当前暗色，切换亮色">
+          <span class="theme-light">亮</span>
+          <span class="theme-sep" aria-hidden="true">/</span>
+          <span class="theme-dark">暗</span>
+        </button>
         <span id="clock">00:00:00</span>
         <span class="hud-line">STATION 01</span>
       </div>
@@ -60,6 +73,9 @@
       <button class="beacon" type="button" data-id="works">
         <i></i><span>WK 原画作品</span>
       </button>
+      <button class="beacon" type="button" data-id="blender">
+        <i></i><span>BL Blender</span>
+      </button>
       <button class="beacon" type="button" data-id="unity">
         <i></i><span>UN Unity</span>
       </button>
@@ -91,6 +107,10 @@
           <i></i><em>WK</em><span class="rail-long">原画作品</span><span class="rail-short">原画</span>
         </button>
         <span class="rail-seg" data-from="works" aria-hidden="true"></span>
+        <button type="button" class="rail-item" data-id="blender">
+          <i></i><em>BL</em><span class="rail-long">Blender效果</span><span class="rail-short">Blender</span>
+        </button>
+        <span class="rail-seg" data-from="blender" aria-hidden="true"></span>
         <button type="button" class="rail-item" data-id="unity">
           <i></i><em>UN</em><span class="rail-long">Unity效果</span><span class="rail-short">UNITY</span>
         </button>
@@ -115,6 +135,6 @@
       </figure>
     </div>
 
-    <script type="module" src="js/main.js?v=split-wall2"></script>
+    <script type="module" src="js/main.js?v=clips3"></script>
   </body>
 </html>
