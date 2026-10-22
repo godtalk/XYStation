@@ -2,9 +2,9 @@ import { cam, runtime } from "./state.js";
 import { TOUCH_SCALE, KEY_IMPULSE, WHEEL_SCALE } from "./data.js?v=damp10";
 import { resizeView, spawnDust, tickDust, drawWorld } from "./dust.js?v=ash9";
 import { resizeVortex, drawVortex } from "./vortex.js";
-import { buildHolos, layoutBeacons } from "./holo.js?v=wall4";
-import { buildFields, spinWorks, dragWorks } from "./fields.js?v=wall4";
-import { applyProgress, setPhase, flick, drag, jumpTo, tickMotion, bindNav } from "./journey.js?v=wall4";
+import { buildHolos, layoutBeacons } from "./holo.js?v=split-wall2";
+import { buildFields, spinWorks, dragWorks } from "./fields.js?v=split-wall2";
+import { applyProgress, setPhase, flick, drag, jumpTo, tickMotion, bindNav } from "./journey.js?v=split-wall2";
 import { closePeek } from "./peek.js?v=flow6";
 
 const body = document.body;

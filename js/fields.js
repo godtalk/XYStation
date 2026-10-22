@@ -1,5 +1,5 @@
 import { cam, runtime } from "./state.js";
-import { beaconWorld, fields, holoVisibility, stopByKey } from "./data.js?v=wall4";
+import { beaconWorld, fields, holoVisibility, stopByKey } from "./data.js?v=split-wall2";
 import { clamp, hash01, isVideoSrc, mediaURL } from "./util.js";
 import { openPeek } from "./peek.js?v=flow6";
 
@@ -25,6 +25,23 @@ function primeVideo(url) {
   link.as = "video";
   link.href = url;
   document.head.appendChild(link);
+}
+
+function showFrame(clip) {
+  if (!clip || clip.dataset.framed) return;
+  if (clip.dataset.src && !clip.getAttribute("src")) {
+    clip.preload = "metadata";
+    clip.src = clip.dataset.src;
+    clip.load();
+  }
+  const paint = () => {
+    if (clip.currentTime < 0.05) {
+      try { clip.currentTime = 0.12; } catch { /* not seekable yet */ }
+    }
+    clip.dataset.framed = "1";
+  };
+  if (clip.readyState >= 2) paint();
+  else clip.addEventListener("loadeddata", paint, { once: true });
 }
 
 function warmClip(clip, url) {
@@ -73,6 +90,7 @@ function buildFields() {
       el.style.setProperty("--dot", `${8 + size * 8}px`);
       el.style.setProperty("--plate", `${96 + size * 54}px`);
       el.style.setProperty("--plate-h", `${60 + size * 32}px`);
+      const strip = group === "works" || group === "unity";
       const videoSrc = item.video || (isVideoSrc(item.img) ? item.img : "");
       const poster = item.poster || (!videoSrc && item.img ? item.img : "");
       const src = mediaURL(videoSrc || poster || "");
@@ -80,7 +98,7 @@ function buildFields() {
       if (item.sheet) el.classList.add("is-sheet");
       if (videoSrc) el.classList.add("has-video");
       if (poster && !videoSrc) {
-        if (group === "works") {
+        if (strip) {
           const img = document.createElement("img");
           img.alt = item.name || "作品";
           img.decoding = "async";
@@ -104,7 +122,7 @@ function buildFields() {
           label.textContent = item.name;
           el.appendChild(label);
         }
-        if (group === "works") {
+        if (strip) {
           clip.preload = "none";
           clip.dataset.src = src;
         } else {
@@ -127,7 +145,7 @@ function buildFields() {
       } else {
         el.innerHTML = `<i></i>${item.name ? `<span>${item.name}</span>` : ""}`;
       }
-      if (group === "works") worksStrip().appendChild(el);
+      if (strip) stripFrame(group).strip.appendChild(el);
       else station.appendChild(el);
       const node = {
         el, group, x: pos[0], y: pos[1], z: pos[2], size,
@@ -150,11 +168,13 @@ function layoutFields() {
   const navW = innerWidth >= 720 ? 220 : 12;
   const areaW = innerWidth - navW - 40;
   const areaH = innerHeight - 110;
-  ["software", "works", "tools"].forEach((group) => {
-    const vis = runtime.phase === "is-station" ? holoVisibility(group, cam.progress) : 0;
+  const lead = leadStrip();
+  ["software", "works", "unity", "tools"].forEach((group) => {
+    let vis = runtime.phase === "is-station" ? holoVisibility(group, cam.progress) : 0;
+    if (STRIPS[group] && group !== lead) vis = 0;
     const nodes = fieldNodes.filter((node) => node.group === group);
     if (group === "software") layoutSoftware(nodes, vis, now, navW, areaW, areaH);
-    else if (group === "works") layoutWorks(nodes, vis, navW, areaW, areaH);
+    else if (STRIPS[group]) layoutStrip(group, nodes, vis, navW, areaW, areaH);
     else layoutWall(group, nodes, vis, navW, areaW, areaH);
   });
 }
@@ -179,40 +199,50 @@ function packLabelEl() {
   return el;
 }
 
-const WALL_ROWS = 3;
-const WALL_VISIBLE = 8;
+const STRIPS = {
+  works: { rows: 3, visible: 8, aspect: 1 },
+  unity: { rows: 2, visible: 2, aspect: 16 / 9 },
+};
 const WALL_DAMP = 0.95;
 const WALL_REST = 0.12;
 const WALL_VEL_MAX = 56;
 const THUMB = 360;
 const LOAD_N = 3;
 
-const wall = {
-  px: 0,
-  vel: 0,
-  maxPx: 0,
-  step: 1,
-  colsTotal: WALL_VISIBLE,
-  held: false,
-  lastTick: 0,
-  lastInput: 0,
-  layoutKey: "",
-  boxKey: "",
-  visKey: -1,
-  tx: null,
-  seen: -1,
-  nodes: [],
+function makeWall() {
+  return {
+    px: 0,
+    vel: 0,
+    maxPx: 0,
+    step: 1,
+    colsTotal: 1,
+    held: false,
+    lastTick: 0,
+    lastInput: 0,
+    layoutKey: "",
+    boxKey: "",
+    visKey: -1,
+    tx: null,
+    seen: -1,
+    nodes: [],
+  };
+}
+
+const walls = {
+  works: makeWall(),
+  unity: makeWall(),
 };
 
 const thumbCache = new Map();
 const loadQ = [];
 let loadBusy = 0;
 
-function worksFrame() {
-  let clip = document.getElementById("works-clip");
+function stripFrame(group) {
+  const id = `${group}-clip`;
+  let clip = document.getElementById(id);
   if (!clip) {
     clip = document.createElement("div");
-    clip.id = "works-clip";
+    clip.id = id;
     clip.className = "works-clip";
     station.appendChild(clip);
   }
@@ -223,10 +253,6 @@ function worksFrame() {
     clip.appendChild(strip);
   }
   return { clip, strip };
-}
-
-function worksStrip() {
-  return worksFrame().strip;
 }
 
 async function bakeThumb(url) {
@@ -296,19 +322,19 @@ function enqueueLoad(node, urgent) {
   pumpLoad();
 }
 
-function revealWall() {
+function revealWall(wall, visible) {
   const col = wall.px / Math.max(1, wall.step);
   const start = Math.max(0, Math.floor(col) - 1);
-  const end = Math.min(wall.colsTotal, Math.ceil(col + WALL_VISIBLE + 1));
+  const end = Math.min(wall.colsTotal, Math.ceil(col + visible + 1));
   if (wall.seen === start && loadBusy) return;
   wall.seen = start;
   wall.nodes.forEach((node, i) => {
     const c = i % wall.colsTotal;
-    if (c >= start && c < end) enqueueLoad(node, c < start + WALL_VISIBLE);
+    if (c >= start && c < end) enqueueLoad(node, c < start + visible);
   });
 }
 
-function tickWall(now) {
+function tickWall(wall, now) {
   const dt = wall.lastTick ? Math.min(0.033, (now - wall.lastTick) / 1000) : 0.016;
   wall.lastTick = now;
   const frames = dt * 60;
@@ -326,12 +352,33 @@ function tickWall(now) {
   wall.px = clamp(wall.px, 0, wall.maxPx);
 }
 
-function worksOpen() {
-  return runtime.phase === "is-station" && holoVisibility("works", cam.progress) >= 0.5;
+function leadStrip() {
+  let best = null;
+  let bestD = Infinity;
+  Object.keys(STRIPS).forEach((group) => {
+    const stop = stopByKey(group);
+    if (!stop) return;
+    const d = stop.until != null
+      ? (cam.progress < stop.at ? stop.at - cam.progress : cam.progress > stop.until ? cam.progress - stop.until : 0)
+      : Math.abs(cam.progress - stop.at);
+    if (d < bestD) {
+      bestD = d;
+      best = group;
+    }
+  });
+  return best;
+}
+
+function openStrip() {
+  if (runtime.phase !== "is-station" || document.body.classList.contains("is-peek")) return null;
+  const group = leadStrip();
+  if (!group || holoVisibility(group, cam.progress) < 0.5) return null;
+  return walls[group];
 }
 
 export function spinWorks(dy) {
-  if (!dy || document.body.classList.contains("is-peek") || !worksOpen()) return false;
+  const wall = openStrip();
+  if (!dy || !wall) return false;
   const atStart = wall.px <= 0.8 && wall.vel <= 0.2 && dy > 0;
   const atEnd = wall.px >= wall.maxPx - 0.8 && wall.vel >= -0.2 && dy < 0;
   if (atStart || atEnd) {
@@ -346,7 +393,8 @@ export function spinWorks(dy) {
 }
 
 export function dragWorks(px) {
-  if (!px || document.body.classList.contains("is-peek") || !worksOpen()) return false;
+  const wall = openStrip();
+  if (!px || !wall) return false;
   const atStart = wall.px <= 0.8 && px < 0;
   const atEnd = wall.px >= wall.maxPx - 0.8 && px > 0;
   if (atStart || atEnd) {
@@ -361,8 +409,10 @@ export function dragWorks(px) {
   return true;
 }
 
-function layoutWorks(nodes, vis, navW, areaW, areaH) {
-  const { clip, strip } = worksFrame();
+function layoutStrip(group, nodes, vis, navW, areaW, areaH) {
+  const spec = STRIPS[group];
+  const wall = walls[group];
+  const { clip, strip } = stripFrame(group);
   if (!nodes.length) {
     clip.style.opacity = "0";
     return;
@@ -372,20 +422,23 @@ function layoutWorks(nodes, vis, navW, areaW, areaH) {
   const viewW = Math.max(280, innerWidth - padL - 40);
   const viewH = Math.max(220, areaH - 8);
   const gap = Math.max(6, Math.min(12, Math.round(viewW * 0.007)));
-  const cell = Math.max(
-    44,
-    Math.min(
-      (viewW - gap * (WALL_VISIBLE - 1)) / WALL_VISIBLE,
-      (viewH - 28 - gap * (WALL_ROWS - 1)) / WALL_ROWS,
-    ),
-  );
-  const colsTotal = Math.max(WALL_VISIBLE, Math.ceil(nodes.length / WALL_ROWS));
-  const step = cell + gap;
-  wall.step = step;
+  let cellW = (viewW - gap * (spec.visible - 1)) / spec.visible;
+  let cellH = cellW / spec.aspect;
+  const maxH = (viewH - 28 - gap * (spec.rows - 1)) / spec.rows;
+  if (cellH > maxH) {
+    cellH = maxH;
+    cellW = cellH * spec.aspect;
+  }
+  cellW = Math.max(44, cellW);
+  cellH = cellW / spec.aspect;
+  const colsTotal = Math.max(spec.visible, Math.ceil(nodes.length / spec.rows));
+  const stepX = cellW + gap;
+  const stepY = cellH + gap;
+  wall.step = stepX;
   wall.colsTotal = colsTotal;
-  wall.maxPx = Math.max(0, (colsTotal - WALL_VISIBLE) * step);
-  const boxW = Math.round(WALL_VISIBLE * cell + (WALL_VISIBLE - 1) * gap);
-  const boxH = Math.round(WALL_ROWS * cell + (WALL_ROWS - 1) * gap);
+  wall.maxPx = Math.max(0, (colsTotal - spec.visible) * stepX);
+  const boxW = Math.round(spec.visible * cellW + (spec.visible - 1) * gap);
+  const boxH = Math.round(spec.rows * cellH + (spec.rows - 1) * gap);
   const cx = padL + viewW / 2;
   const cy = innerHeight * 0.52;
   const boxKey = `${Math.round(cx)}:${Math.round(cy)}:${boxW}:${boxH}`;
@@ -403,43 +456,56 @@ function layoutWorks(nodes, vis, navW, areaW, areaH) {
       wall.visKey = 0;
       clip.style.opacity = "0";
       clip.style.pointerEvents = "none";
+      nodes.forEach((node) => {
+        node.el.style.pointerEvents = "none";
+      });
     }
     return;
   }
 
-  tickWall(performance.now());
+  tickWall(wall, performance.now());
+  if (vis > 0.2) {
+    nodes.forEach((node) => {
+      if (node.isVideo) showFrame(node.el.querySelector("video"));
+    });
+  }
   if (vis < 0.5) wall.held = false;
   if (wall.held) cam.vel = 0;
 
+  const on = vis > 0.28;
   if (wall.visKey !== vis) {
     wall.visKey = vis;
     clip.style.opacity = String(vis);
-    clip.style.pointerEvents = vis > 0.28 ? "auto" : "none";
+    clip.style.pointerEvents = "none";
+    nodes.forEach((node) => {
+      node.el.style.pointerEvents = on ? "auto" : "none";
+    });
   }
 
-  const layoutKey = `${Math.round(cell)}:${nodes.length}`;
+  const cellWpx = `${Math.round(cellW)}px`;
+  const cellHpx = `${Math.round(cellH)}px`;
+  const layoutKey = `${cellWpx}:${cellHpx}:${nodes.length}`;
   if (wall.layoutKey !== layoutKey) {
     wall.layoutKey = layoutKey;
     wall.seen = -1;
-    const cellPx = `${Math.round(cell)}px`;
     nodes.forEach((node, i) => {
       const row = Math.floor(i / colsTotal);
       const col = i % colsTotal;
       node.el.classList.remove("is-flow", "is-center");
       node.el.classList.add("is-wall");
-      node.el.style.setProperty("--plate", cellPx);
-      node.el.style.setProperty("--plate-h", cellPx);
-      node.el.style.width = cellPx;
-      node.el.style.height = cellPx;
-      node.el.style.left = `${Math.round(col * step)}px`;
-      node.el.style.top = `${Math.round(row * step)}px`;
+      node.el.style.setProperty("--plate", cellWpx);
+      node.el.style.setProperty("--plate-h", cellHpx);
+      node.el.style.width = cellWpx;
+      node.el.style.height = cellHpx;
+      node.el.style.left = `${Math.round(col * stepX)}px`;
+      node.el.style.top = `${Math.round(row * stepY)}px`;
       node.el.style.transform = "none";
       node.el.style.opacity = "1";
-      node.el.style.pointerEvents = "auto";
+      node.el.style.pointerEvents = on ? "auto" : "none";
       node.el.style.zIndex = "8";
       if (node.el.parentElement !== strip) strip.appendChild(node.el);
     });
-    strip.style.width = `${Math.round(colsTotal * cell + (colsTotal - 1) * gap)}px`;
+    strip.style.width = `${Math.round(colsTotal * cellW + (colsTotal - 1) * gap)}px`;
     strip.style.height = `${boxH}px`;
   }
 
@@ -447,9 +513,9 @@ function layoutWorks(nodes, vis, navW, areaW, areaH) {
   if (wall.tx !== tx) {
     wall.tx = tx;
     strip.style.transform = `translate3d(${tx}px,0,0)`;
-    revealWall();
+    revealWall(wall, spec.visible);
   } else if (wall.seen < 0) {
-    revealWall();
+    revealWall(wall, spec.visible);
   }
 }
 
