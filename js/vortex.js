@@ -1,5 +1,5 @@
 import { cam } from "./state.js";
-import { THEMES } from "./data.js?v=theme10";
+import { THEMES } from "./data.js?v=glow15";
 import { clamp, hash01, screenFit } from "./util.js";
 
 const ash = document.getElementById("ash");

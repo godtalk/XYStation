@@ -288,7 +288,7 @@ export function drawWorld() {
     if (p.glyph) {
       a.x += cam.lookX * TITLE_PARALLAX_X * (1 - scatter);
       a.y += cam.lookY * TITLE_PARALLAX_Y * (1 - scatter);
-      const formed = 0.8;
+      const formed = 0.9;
       const bg = clamp(0.2 + 90 / (a.depth + 28), 0.18, 0.5);
       const fade = runtime.ready
         ? formed * (1 - scatter) + bg * scatter

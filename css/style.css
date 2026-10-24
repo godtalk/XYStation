@@ -6,8 +6,8 @@ html[data-theme="dark"] {
   --line: #2a3544;
   --accent: #c45a28;
   --hint-bottom: 72px;
-  --glow-spot: #152033;
-  --glow-mid: #0c1420;
+  --glow-spot: #1e2d4b;
+  --glow-mid: #1e2d4b;
   --vignette-mid: rgba(6, 10, 18, 0.55);
   --vignette-edge: rgba(2, 4, 10, 0.94);
   --vignette-in: 22%;
@@ -16,8 +16,8 @@ html[data-theme="dark"] {
   --rail-fill: rgba(8, 12, 20, 0.92);
   --plate-fill: #111820;
   --on-photo: #f5f8fc;
-  --dust: #9eb1c7;
-  --dust-stroke: rgba(158, 177, 199, 0.42);
+  --dust: #dfe5ec;
+  --dust-stroke: rgba(223, 229, 236, 0.42);
   --title-dust: #ffffff;
   --title-scale: 1;
   --grain-opacity: 0.12;
@@ -124,7 +124,7 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: 22px 32px;
-  z-index: 8;
+  z-index: 9;
   mix-blend-mode: var(--hud-blend, multiply);
 }
 

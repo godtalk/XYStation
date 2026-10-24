@@ -1,5 +1,5 @@
-import { THEMES } from "./data.js?v=theme10";
-import { refreshVortex } from "./vortex.js?v=theme10";
+import { THEMES } from "./data.js?v=glow15";
+import { refreshVortex } from "./vortex.js?v=glow15";
 
 const KEY = "xystation-theme";
 const CSS_MAP = {
