@@ -1,12 +1,12 @@
 import { cam, runtime } from "./state.js";
-import { TOUCH_SCALE, KEY_IMPULSE, WHEEL_SCALE } from "./data.js?v=clips3";
+import { TOUCH_SCALE, KEY_IMPULSE, WHEEL_SCALE } from "./data.js?v=mp4case";
 import { resizeView, spawnDust, tickDust, drawWorld } from "./dust.js?v=title90";
 import { resizeVortex, drawVortex } from "./vortex.js?v=glow15";
 import { bindTheme } from "./theme.js?v=glow15";
-import { buildHolos, layoutBeacons } from "./holo.js?v=vfast";
-import { buildFields, spinWorks, dragWorks, startMedia } from "./fields.js?v=vfast";
-import { applyProgress, setPhase, flick, drag, jumpTo, tickMotion, bindNav } from "./journey.js?v=vfast";
-import { closePeek } from "./peek.js?v=flow6";
+import { buildHolos, layoutBeacons } from "./holo.js?v=mp4case";
+import { buildFields, spinWorks, dragWorks, startMedia } from "./fields.js?v=mp4case";
+import { applyProgress, setPhase, flick, drag, jumpTo, tickMotion, bindNav } from "./journey.js?v=mp4case";
+import { closePeek } from "./peek.js?v=mp4case";
 
 const body = document.body;
 const pct = document.getElementById("pct");

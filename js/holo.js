@@ -1,8 +1,8 @@
 import { cam, runtime } from "./state.js";
-import { beaconWorld, cards, fields, holoVisibility } from "./data.js?v=clips3";
+import { beaconWorld, cards, fields, holoVisibility } from "./data.js?v=mp4case";
 import { project } from "./camera.js";
 import { clamp } from "./util.js";
-import { layoutFields } from "./fields.js?v=vfast";
+import { layoutFields } from "./fields.js?v=mp4case";
 
 const beacons = [...document.querySelectorAll(".beacon")];
 const station = document.getElementById("station");

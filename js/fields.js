@@ -1,5 +1,5 @@
 import { cam, runtime } from "./state.js";
-import { beaconWorld, fields, holoVisibility, stopByKey } from "./data.js?v=clips3";
+import { beaconWorld, fields, holoVisibility, stopByKey } from "./data.js?v=mp4case";
 import { clamp, hash01, isVideoSrc, mediaURL } from "./util.js";
 import { openPeek } from "./peek.js?v=flow6";
 
@@ -802,11 +802,16 @@ function layoutSoftware(nodes, vis, now, navW, areaW, areaH) {
 
 export function startMedia() {
   const images = [];
-  const seen = new Set();
+  const imageJobs = new Map();
   const pushImage = (url, apply) => {
-    if (!url || seen.has(url)) return;
-    seen.add(url);
-    images.push({ url, apply });
+    if (!url) return;
+    let job = imageJobs.get(url);
+    if (!job) {
+      job = { url, applies: [] };
+      imageJobs.set(url, job);
+      images.push(job);
+    }
+    if (apply) job.applies.push(apply);
   };
   const avatar = document.querySelector(".cv-avatar");
   if (avatar?.dataset.src) {
@@ -825,52 +830,93 @@ export function startMedia() {
     }
     const url = node.thumb || node.src;
     pushImage(url, () => {
-      if (node.group !== "software") return;
       const img = node.el.querySelector("img");
       if (img && !img.getAttribute("src")) img.src = url;
+      node.loaded = true;
     });
   });
 
-  let cursor = 0;
-  let busy = 0;
-  const pumpImages = () => {
-    if (cursor >= images.length && busy === 0) {
-      pumpVideos();
+  const note = document.getElementById("media-load");
+  let hideTimer = 0;
+  const showNote = (text) => {
+    if (!note) return;
+    window.clearTimeout(hideTimer);
+    if (!text) {
+      hideTimer = window.setTimeout(() => {
+        note.hidden = true;
+      }, 800);
       return;
     }
-    while (busy < LOAD_N && cursor < images.length) {
+    note.hidden = false;
+    note.textContent = text;
+  };
+  const line = (label, done, total) => `${label} ${done}/${total}`;
+  const later = (fn) => window.setTimeout(fn, 0);
+
+  let cursor = 0;
+  let busy = 0;
+  let imageDone = 0;
+  let videosBegun = false;
+  const pumpImages = () => {
+    showNote(images.length ? line("图片", imageDone, images.length) : "");
+    if (cursor >= images.length && busy === 0) {
+      if (!videosBegun) {
+        videosBegun = true;
+        later(pumpVideos);
+      }
+      return;
+    }
+    let started = 0;
+    while (busy < LOAD_N && cursor < images.length && started < LOAD_N) {
+      started += 1;
       const job = images[cursor];
       cursor += 1;
       busy += 1;
       const img = new Image();
       const done = () => {
-        job.apply?.();
+        img.onload = null;
+        img.onerror = null;
+        job.applies.forEach((apply) => apply());
+        imageDone += 1;
         busy -= 1;
-        pumpImages();
+        later(pumpImages);
       };
       img.onload = done;
       img.onerror = done;
       img.src = job.url;
     }
+    if (cursor < images.length && busy === 0) later(pumpImages);
   };
 
   const videos = fieldNodes.filter((node) => node.isVideo);
   let videoAt = 0;
   let videoBusy = 0;
+  let videoDone = 0;
   const pumpVideos = () => {
     videosOpen = true;
-    if (videoAt >= videos.length && videoBusy === 0) return;
-    while (videoBusy < LOAD_N && videoAt < videos.length) {
+    if (!videos.length || (videoAt >= videos.length && videoBusy === 0)) {
+      showNote(videos.length ? line("视频", videoDone, videos.length) : "");
+      showNote("");
+      return;
+    }
+    showNote(line("视频", videoDone, videos.length));
+    let started = 0;
+    while (videoBusy < LOAD_N && videoAt < videos.length && started < LOAD_N) {
+      started += 1;
       const node = videos[videoAt];
       videoAt += 1;
       const clip = node.el.querySelector("video");
-      if (!clip) continue;
+      if (!clip) {
+        videoDone += 1;
+        continue;
+      }
       videoBusy += 1;
       const done = () => {
         clip.removeEventListener("loadeddata", done);
         clip.removeEventListener("error", done);
+        videoDone += 1;
         videoBusy -= 1;
-        pumpVideos();
+        later(pumpVideos);
       };
       clip.preload = "metadata";
       clip.addEventListener("loadeddata", done);
@@ -879,9 +925,11 @@ export function startMedia() {
       else if (clip.readyState >= 2) done();
       showFrame(clip);
     }
+    if (videoAt < videos.length && videoBusy === 0) later(pumpVideos);
   };
 
-  pumpImages();
+  if (!images.length) pumpVideos();
+  else pumpImages();
 }
 
 export { buildFields, layoutFields };

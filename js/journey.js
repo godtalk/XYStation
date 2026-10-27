@@ -5,9 +5,9 @@ import {
   VEL_MAX,
   stopAt,
   stopByKey,
-} from "./data.js?v=clips3";
+} from "./data.js?v=mp4case";
 import { poseAt } from "./camera.js";
-import { layoutBeacons } from "./holo.js?v=vfast";
+import { layoutBeacons } from "./holo.js?v=mp4case";
 import { clamp } from "./util.js";
 
 const body = document.body;

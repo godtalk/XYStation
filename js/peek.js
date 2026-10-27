@@ -149,6 +149,10 @@ function playWhenReady(clip, seq) {
     setWait("");
     clip.play().catch(() => {});
   };
+  if (clip.error) {
+    setWait("片子没能打开");
+    return;
+  }
   if (clip.readyState >= 3) {
     go();
     return;

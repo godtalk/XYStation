@@ -369,6 +369,22 @@ html[data-theme="dark"] .theme-switch .theme-dark {
   border-color: var(--accent);
 }
 
+.media-load {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--hint-bottom) + 96px);
+  transform: translateX(-50%);
+  z-index: 10;
+  margin: 0;
+  pointer-events: none;
+  font-family: "Chivo Mono", monospace;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
 .station {
   perspective: 1400px;
   perspective-origin: 48% 48%;
