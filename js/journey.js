@@ -7,7 +7,7 @@ import {
   stopByKey,
 } from "./data.js?v=mp4case";
 import { poseAt } from "./camera.js";
-import { layoutBeacons } from "./holo.js?v=mp4case";
+import { layoutBeacons } from "./holo.js?v=cliprog";
 import { clamp } from "./util.js";
 
 const body = document.body;

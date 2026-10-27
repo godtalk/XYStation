@@ -143,11 +143,44 @@ function mediaReady(el, isVideo) {
   return el.readyState >= 2 && el.videoWidth;
 }
 
+function bufferPct(clip) {
+  const duration = clip.duration;
+  if (duration && Number.isFinite(duration) && clip.buffered.length) {
+    let end = 0;
+    for (let i = 0; i < clip.buffered.length; i += 1) end = Math.max(end, clip.buffered.end(i));
+    return Math.min(100, Math.round((end / duration) * 100));
+  }
+  return clip.readyState >= 4 ? 100 : 0;
+}
+
 function playWhenReady(clip, seq) {
+  let paint = () => {};
+  const stop = () => {
+    clip.removeEventListener("progress", paint);
+    clip.removeEventListener("loadedmetadata", paint);
+    clip.removeEventListener("canplay", paint);
+  };
   const go = () => {
     if (seq !== peekSeq) return;
+    stop();
     setWait("");
     clip.play().catch(() => {});
+  };
+  paint = () => {
+    if (seq !== peekSeq) {
+      stop();
+      return;
+    }
+    if (clip.error) {
+      stop();
+      setWait("片子没能打开");
+      return;
+    }
+    if (clip.readyState >= 3) {
+      go();
+      return;
+    }
+    setWait(`${bufferPct(clip)}%`);
   };
   if (clip.error) {
     setWait("片子没能打开");
@@ -157,12 +190,15 @@ function playWhenReady(clip, seq) {
     go();
     return;
   }
-  setWait("片子进站加载中");
-  clip.addEventListener("canplay", go, { once: true });
+  paint();
+  clip.addEventListener("progress", paint);
+  clip.addEventListener("loadedmetadata", paint);
+  clip.addEventListener("canplay", paint);
   clip.addEventListener(
     "error",
     () => {
       if (seq !== peekSeq) return;
+      stop();
       setWait("片子没能打开");
     },
     { once: true }

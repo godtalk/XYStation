@@ -28,6 +28,36 @@ function primeVideo(url) {
   document.head.appendChild(link);
 }
 
+function bufferPct(clip) {
+  const duration = clip.duration;
+  if (duration && Number.isFinite(duration) && clip.buffered.length) {
+    let end = 0;
+    for (let i = 0; i < clip.buffered.length; i += 1) end = Math.max(end, clip.buffered.end(i));
+    return Math.min(100, Math.round((end / duration) * 100));
+  }
+  return clip.readyState >= 4 ? 100 : 0;
+}
+
+function bindClipMeter(node, clip) {
+  const meter = node.el.querySelector(".clip-load");
+  if (!meter || meter.dataset.bound) return;
+  meter.dataset.bound = "1";
+  meter.hidden = false;
+  meter.textContent = "0%";
+  const paint = () => {
+    const pct = bufferPct(clip);
+    const framed = clip.readyState >= 2;
+    meter.textContent = `${pct}%`;
+    meter.hidden = pct >= 100;
+    node.el.classList.toggle("is-frame", framed);
+  };
+  clip.addEventListener("progress", paint);
+  clip.addEventListener("loadedmetadata", paint);
+  clip.addEventListener("loadeddata", paint);
+  clip.addEventListener("canplaythrough", paint);
+  paint();
+}
+
 function showFrame(clip) {
   if (!clip || clip.dataset.framed) return;
   if (clip.dataset.src && !clip.getAttribute("src")) {
@@ -124,6 +154,10 @@ function buildFields() {
         }
         clip.preload = "none";
         clip.dataset.src = src;
+        const meter = document.createElement("b");
+        meter.className = "clip-load";
+        meter.hidden = true;
+        el.appendChild(meter);
         el.insertBefore(clip, el.firstChild);
         el.addEventListener("pointerenter", () => {
           if (!videosOpen || !el.contains(clip)) return;
@@ -836,29 +870,12 @@ export function startMedia() {
     });
   });
 
-  const note = document.getElementById("media-load");
-  let hideTimer = 0;
-  const showNote = (text) => {
-    if (!note) return;
-    window.clearTimeout(hideTimer);
-    if (!text) {
-      hideTimer = window.setTimeout(() => {
-        note.hidden = true;
-      }, 800);
-      return;
-    }
-    note.hidden = false;
-    note.textContent = text;
-  };
-  const line = (label, done, total) => `${label} ${done}/${total}`;
   const later = (fn) => window.setTimeout(fn, 0);
 
   let cursor = 0;
   let busy = 0;
-  let imageDone = 0;
   let videosBegun = false;
   const pumpImages = () => {
-    showNote(images.length ? line("图片", imageDone, images.length) : "");
     if (cursor >= images.length && busy === 0) {
       if (!videosBegun) {
         videosBegun = true;
@@ -877,7 +894,6 @@ export function startMedia() {
         img.onload = null;
         img.onerror = null;
         job.applies.forEach((apply) => apply());
-        imageDone += 1;
         busy -= 1;
         later(pumpImages);
       };
@@ -891,34 +907,25 @@ export function startMedia() {
   const videos = fieldNodes.filter((node) => node.isVideo);
   let videoAt = 0;
   let videoBusy = 0;
-  let videoDone = 0;
   const pumpVideos = () => {
     videosOpen = true;
-    if (!videos.length || (videoAt >= videos.length && videoBusy === 0)) {
-      showNote(videos.length ? line("视频", videoDone, videos.length) : "");
-      showNote("");
-      return;
-    }
-    showNote(line("视频", videoDone, videos.length));
+    if (!videos.length || (videoAt >= videos.length && videoBusy === 0)) return;
     let started = 0;
     while (videoBusy < LOAD_N && videoAt < videos.length && started < LOAD_N) {
       started += 1;
       const node = videos[videoAt];
       videoAt += 1;
       const clip = node.el.querySelector("video");
-      if (!clip) {
-        videoDone += 1;
-        continue;
-      }
+      if (!clip) continue;
       videoBusy += 1;
+      bindClipMeter(node, clip);
       const done = () => {
         clip.removeEventListener("loadeddata", done);
         clip.removeEventListener("error", done);
-        videoDone += 1;
         videoBusy -= 1;
         later(pumpVideos);
       };
-      clip.preload = "metadata";
+      clip.preload = "auto";
       clip.addEventListener("loadeddata", done);
       clip.addEventListener("error", done);
       if (!clip.getAttribute("src") && clip.dataset.src) clip.src = clip.dataset.src;

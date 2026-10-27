@@ -369,22 +369,6 @@ html[data-theme="dark"] .theme-switch .theme-dark {
   border-color: var(--accent);
 }
 
-.media-load {
-  position: fixed;
-  left: 50%;
-  bottom: calc(var(--hint-bottom) + 96px);
-  transform: translateX(-50%);
-  z-index: 10;
-  margin: 0;
-  pointer-events: none;
-  font-family: "Chivo Mono", monospace;
-  font-size: 18px;
-  font-weight: 600;
-  letter-spacing: 0.18em;
-  color: var(--muted);
-  white-space: nowrap;
-}
-
 .station {
   perspective: 1400px;
   perspective-origin: 48% 48%;
@@ -620,6 +604,33 @@ html[data-theme="dark"] .theme-switch .theme-dark {
 
 .dot-work.is-wall span {
   display: none;
+}
+
+.dot-work.is-wall.has-video .clip-load {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 3;
+  margin: 0;
+  padding: 6px 10px;
+  font-family: "Chivo Mono", monospace;
+  font-size: 15px;
+  font-weight: 600;
+  font-style: normal;
+  letter-spacing: 0.12em;
+  color: #f4efe4;
+  background: rgba(8, 10, 14, 0.55);
+  pointer-events: none;
+}
+
+.dot-work.is-wall.has-video.is-frame .clip-load {
+  top: 12px;
+  transform: translateX(-50%);
+}
+
+.dot-work.is-wall.has-video .clip-load[hidden] {
+  display: none !important;
 }
 
 .dot-work.is-wall.has-video span {
