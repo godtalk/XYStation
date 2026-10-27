@@ -67,6 +67,7 @@ body {
 #view,
 .glow,
 .grain,
+#cloud,
 #ash,
 .vignette {
   position: fixed;
@@ -74,6 +75,7 @@ body {
   pointer-events: none;
 }
 
+#cloud,
 #view {
   z-index: 1;
 }
@@ -239,6 +241,7 @@ html[data-theme="dark"] .theme-switch .theme-dark {
   perspective: 640px;
   transform-style: preserve-3d;
   z-index: 8;
+  user-select: none;
 }
 
 .boot {

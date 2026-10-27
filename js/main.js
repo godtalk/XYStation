@@ -2,6 +2,7 @@ import { cam, runtime } from "./state.js";
 import { TOUCH_SCALE, KEY_IMPULSE, WHEEL_SCALE } from "./data.js?v=mp4case";
 import { resizeView, spawnDust, tickDust, drawWorld } from "./dust.js?v=title90";
 import { resizeVortex, drawVortex } from "./vortex.js?v=glow15";
+import { resizePoints, drawPoints, loadPointModel } from "./pointmodel.js?v=draw15";
 import { bindTheme } from "./theme.js?v=glow15";
 import { buildHolos, layoutBeacons } from "./holo.js?v=imgprog";
 import { buildFields, spinWorks, dragWorks, startMedia } from "./fields.js?v=imgprog";
@@ -16,6 +17,7 @@ const title = document.querySelector(".fly-title");
 function resize() {
   resizeView();
   resizeVortex();
+  resizePoints();
 }
 
 async function boot() {
@@ -61,6 +63,7 @@ function loop(now) {
   tickDust(now || performance.now());
   applyProgress(cam.progress);
   drawWorld();
+  drawPoints(now);
   drawVortex(now);
   requestAnimationFrame(loop);
 }
@@ -73,6 +76,7 @@ function wheelInScrollableText(event) {
 }
 
 resize();
+loadPointModel("OBJ/%E7%82%AE%E8%BD%A62.obj?v=2");
 spawnDust();
 buildHolos();
 buildFields();
