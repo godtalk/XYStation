@@ -142,6 +142,10 @@ function buildFields() {
         } else {
           el.innerHTML = `<img alt="${item.name || "作品"}" decoding="async">${item.name ? `<span>${item.name}</span>` : ""}`;
         }
+        const meter = document.createElement("b");
+        meter.className = "clip-load";
+        meter.hidden = true;
+        el.appendChild(meter);
       } else if (videoSrc) {
         const clip = document.createElement("video");
         clip.muted = true;
@@ -837,37 +841,51 @@ function layoutSoftware(nodes, vis, now, navW, areaW, areaH) {
 export function startMedia() {
   const images = [];
   const imageJobs = new Map();
-  const pushImage = (url, apply) => {
+  const pushImage = (url, apply, meter) => {
     if (!url) return;
     let job = imageJobs.get(url);
     if (!job) {
-      job = { url, applies: [] };
+      job = { url, applies: [], meters: [] };
       imageJobs.set(url, job);
       images.push(job);
     }
     if (apply) job.applies.push(apply);
+    if (meter) job.meters.push(meter);
   };
   const avatar = document.querySelector(".cv-avatar");
+  let avatarMeter = null;
   if (avatar?.dataset.src) {
-    pushImage(avatar.dataset.src, () => {
-      avatar.src = avatar.dataset.src;
-    });
+    let photo = avatar.closest(".cv-photo");
+    if (!photo) {
+      photo = document.createElement("span");
+      photo.className = "cv-photo";
+      avatar.replaceWith(photo);
+      photo.appendChild(avatar);
+    }
+    avatarMeter = document.createElement("b");
+    avatarMeter.className = "clip-load";
+    avatarMeter.hidden = true;
+    photo.appendChild(avatarMeter);
+    pushImage(avatar.dataset.src, (shown) => {
+      avatar.src = shown || avatar.dataset.src;
+    }, avatarMeter);
   }
   fieldNodes.forEach((node) => {
     if (node.isVideo) {
       if (!node.thumb) return;
-      pushImage(node.thumb, () => {
+      pushImage(node.thumb, (shown) => {
         const clip = node.el.querySelector("video");
-        if (clip && !clip.poster) clip.poster = node.thumb;
+        if (clip && !clip.poster) clip.poster = shown || node.thumb;
       });
       return;
     }
     const url = node.thumb || node.src;
-    pushImage(url, () => {
+    const meter = node.el.querySelector(".clip-load");
+    pushImage(url, (shown) => {
       const img = node.el.querySelector("img");
-      if (img && !img.getAttribute("src")) img.src = url;
+      if (img && !img.getAttribute("src")) img.src = shown || url;
       node.loaded = true;
-    });
+    }, meter);
   });
 
   const later = (fn) => window.setTimeout(fn, 0);
@@ -889,17 +907,34 @@ export function startMedia() {
       const job = images[cursor];
       cursor += 1;
       busy += 1;
-      const img = new Image();
-      const done = () => {
-        img.onload = null;
-        img.onerror = null;
-        job.applies.forEach((apply) => apply());
+      job.meters.forEach((meter) => {
+        meter.hidden = false;
+        meter.textContent = "0%";
+      });
+      const xhr = new XMLHttpRequest();
+      xhr.open("GET", job.url);
+      xhr.responseType = "blob";
+      xhr.onprogress = (event) => {
+        if (!event.lengthComputable || !event.total) return;
+        const pct = Math.min(100, Math.round((event.loaded / event.total) * 100));
+        job.meters.forEach((meter) => {
+          meter.textContent = `${pct}%`;
+        });
+      };
+      const done = (shown) => {
+        job.applies.forEach((apply) => apply(shown));
+        job.meters.forEach((meter) => {
+          meter.hidden = true;
+        });
         busy -= 1;
         later(pumpImages);
       };
-      img.onload = done;
-      img.onerror = done;
-      img.src = job.url;
+      xhr.onload = () => {
+        const shown = xhr.status < 400 && xhr.response ? URL.createObjectURL(xhr.response) : "";
+        done(shown);
+      };
+      xhr.onerror = () => done("");
+      xhr.send();
     }
     if (cursor < images.length && busy === 0) later(pumpImages);
   };

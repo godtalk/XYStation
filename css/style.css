@@ -606,7 +606,9 @@ html[data-theme="dark"] .theme-switch .theme-dark {
   display: none;
 }
 
-.dot-work.is-wall.has-video .clip-load {
+.dot-work.is-wall .clip-load,
+.dot-soft.has-img .clip-load,
+.cv-photo .clip-load {
   position: absolute;
   left: 50%;
   top: 50%;
@@ -629,7 +631,7 @@ html[data-theme="dark"] .theme-switch .theme-dark {
   transform: translateX(-50%);
 }
 
-.dot-work.is-wall.has-video .clip-load[hidden] {
+.clip-load[hidden] {
   display: none !important;
 }
 
@@ -954,6 +956,13 @@ html[data-theme="dark"] .dot-soft.has-img:focus-visible img {
   align-items: center;
   column-gap: clamp(16px, 2.2vw, 40px);
   min-height: var(--cv-r);
+}
+
+.cv-photo {
+  position: relative;
+  width: var(--cv-r);
+  height: var(--cv-r);
+  justify-self: center;
 }
 
 .cv-avatar {

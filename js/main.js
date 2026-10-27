@@ -3,10 +3,10 @@ import { TOUCH_SCALE, KEY_IMPULSE, WHEEL_SCALE } from "./data.js?v=mp4case";
 import { resizeView, spawnDust, tickDust, drawWorld } from "./dust.js?v=title90";
 import { resizeVortex, drawVortex } from "./vortex.js?v=glow15";
 import { bindTheme } from "./theme.js?v=glow15";
-import { buildHolos, layoutBeacons } from "./holo.js?v=cliprog";
-import { buildFields, spinWorks, dragWorks, startMedia } from "./fields.js?v=cliprog";
-import { applyProgress, setPhase, flick, drag, jumpTo, tickMotion, bindNav } from "./journey.js?v=cliprog";
-import { closePeek } from "./peek.js?v=cliprog";
+import { buildHolos, layoutBeacons } from "./holo.js?v=imgprog";
+import { buildFields, spinWorks, dragWorks, startMedia } from "./fields.js?v=imgprog";
+import { applyProgress, setPhase, flick, drag, jumpTo, tickMotion, bindNav } from "./journey.js?v=imgprog";
+import { closePeek } from "./peek.js?v=imgprog";
 
 const body = document.body;
 const pct = document.getElementById("pct");
