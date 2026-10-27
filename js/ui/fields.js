@@ -1,11 +1,12 @@
-import { cam, runtime } from "./state.js";
-import { beaconWorld, fields, holoVisibility, stopByKey } from "./data.js?v=mp4case";
-import { clamp, hash01, isVideoSrc, mediaURL } from "./util.js";
-import { openPeek } from "./peek.js?v=flow6";
+import { cam, runtime } from "state";
+import { beaconWorld, holoVisibility, stopAt, stopByKey } from "path";
+import { fields } from "catalog";
+import { clamp, hash01, hashNoise, isVideoSrc, mediaURL, thumbURL } from "util";
+import { openPeek } from "peek";
 
 const station = document.getElementById("station");
 const fieldNodes = [];
-const primed = new Set();
+const nodesByGroup = {};
 let videosOpen = false;
 
 function clipPool() {
@@ -18,16 +19,6 @@ function clipPool() {
   return pool;
 }
 
-function primeVideo(url) {
-  if (!url || primed.has(url)) return;
-  primed.add(url);
-  const link = document.createElement("link");
-  link.rel = "preload";
-  link.as = "video";
-  link.href = url;
-  document.head.appendChild(link);
-}
-
 function bufferPct(clip) {
   const duration = clip.duration;
   if (duration && Number.isFinite(duration) && clip.buffered.length) {
@@ -38,24 +29,11 @@ function bufferPct(clip) {
   return clip.readyState >= 4 ? 100 : 0;
 }
 
-function bindClipMeter(node, clip) {
-  const meter = node.el.querySelector(".clip-load");
-  if (!meter || meter.dataset.bound) return;
-  meter.dataset.bound = "1";
-  meter.hidden = false;
-  meter.textContent = "0%";
-  const paint = () => {
-    const pct = bufferPct(clip);
-    const framed = clip.readyState >= 2;
-    meter.textContent = `${pct}%`;
-    meter.hidden = pct >= 100;
-    node.el.classList.toggle("is-frame", framed);
-  };
-  clip.addEventListener("progress", paint);
-  clip.addEventListener("loadedmetadata", paint);
-  clip.addEventListener("loadeddata", paint);
-  clip.addEventListener("canplaythrough", paint);
-  paint();
+function markFrame(node, clip) {
+  const framed = clip.readyState >= 2;
+  if (!framed) return;
+  node.el.classList.add("is-frame", "is-ready");
+  node.el.classList.remove("is-pending");
 }
 
 function showFrame(clip) {
@@ -108,6 +86,9 @@ function scatterAround(origin, count, spread, seed) {
 
 function buildFields() {
   fieldNodes.length = 0;
+  Object.keys(nodesByGroup).forEach((key) => {
+    nodesByGroup[key] = [];
+  });
   Object.entries(fields).forEach(([group, field], g) => {
     const origin = beaconWorld[group];
     const pts = scatterAround(origin, field.items.length, field.spread, 17 + g * 80);
@@ -123,34 +104,32 @@ function buildFields() {
       el.style.setProperty("--plate-h", `${60 + size * 32}px`);
       const strip = group === "works" || group === "blender" || group === "unity" || group === "tools";
       const videoSrc = item.video || (isVideoSrc(item.img) ? item.img : "");
-      const poster = item.poster || (!videoSrc && item.img ? item.img : "");
+      const still = item.poster || item.img || "";
+      const poster = still && !isVideoSrc(still) ? still : "";
       const src = mediaURL(videoSrc || poster || "");
+      const thumb = poster ? thumbURL(poster) : "";
       if (src) el.classList.add("has-img");
       if (item.sheet) el.classList.add("is-sheet");
       if (videoSrc) el.classList.add("has-video");
       if (poster && !videoSrc) {
-        if (strip) {
-          const img = document.createElement("img");
-          img.alt = item.name || "作品";
-          img.decoding = "async";
-          el.appendChild(img);
-          if (item.name) {
-            const label = document.createElement("span");
-            label.textContent = item.name;
-            el.appendChild(label);
-          }
-        } else {
-          el.innerHTML = `<img alt="${item.name || "作品"}" decoding="async">${item.name ? `<span>${item.name}</span>` : ""}`;
+        el.classList.add("is-pending");
+        const img = document.createElement("img");
+        img.alt = item.name || "作品";
+        img.decoding = "async";
+        img.loading = "lazy";
+        el.appendChild(img);
+        if (item.name) {
+          const label = document.createElement("span");
+          label.textContent = item.name;
+          el.appendChild(label);
         }
-        const meter = document.createElement("b");
-        meter.className = "clip-load";
-        meter.hidden = true;
-        el.appendChild(meter);
       } else if (videoSrc) {
+        el.classList.add("is-pending");
         const clip = document.createElement("video");
         clip.muted = true;
         clip.loop = true;
         clip.playsInline = true;
+        if (thumb) clip.poster = thumb;
         if (item.name) {
           const label = document.createElement("span");
           label.textContent = item.name;
@@ -158,14 +137,11 @@ function buildFields() {
         }
         clip.preload = "none";
         clip.dataset.src = src;
-        const meter = document.createElement("b");
-        meter.className = "clip-load";
-        meter.hidden = true;
-        el.appendChild(meter);
         el.insertBefore(clip, el.firstChild);
         el.addEventListener("pointerenter", () => {
-          if (!videosOpen || !el.contains(clip)) return;
+          if (!el.contains(clip)) return;
           if (clip.dataset.src && !clip.getAttribute("src")) {
+            clip.preload = "metadata";
             clip.src = clip.dataset.src;
             clip.load();
           }
@@ -184,7 +160,7 @@ function buildFields() {
         el, group, x: pos[0], y: pos[1], z: pos[2], size,
         at: item.at, scale: item.s || 1, pack: item.pack || "",
         src, isVideo: Boolean(videoSrc), name: item.name || "",
-        thumb: poster ? mediaURL(poster) : "",
+        thumb,
         loaded: false,
         queued: false,
       };
@@ -192,6 +168,8 @@ function buildFields() {
         el.addEventListener("click", () => openPeek(src, item.name, el, Boolean(videoSrc)));
       }
       fieldNodes.push(node);
+      if (!nodesByGroup[group]) nodesByGroup[group] = [];
+      nodesByGroup[group].push(node);
     });
   });
 }
@@ -205,7 +183,7 @@ function layoutFields() {
   ["software", "works", "blender", "unity", "tools"].forEach((group) => {
     let vis = runtime.phase === "is-station" ? holoVisibility(group, cam.progress) : 0;
     if (STRIPS[group] && group !== lead) vis = 0;
-    const nodes = fieldNodes.filter((node) => node.group === group);
+    const nodes = nodesByGroup[group] || [];
     if (group === "software") layoutSoftware(nodes, vis, now, navW, areaW, areaH);
     else if (STRIPS[group]) layoutStrip(group, nodes, vis, navW, areaW, areaH);
     else layoutWall(group, nodes, vis, navW, areaW, areaH);
@@ -335,22 +313,20 @@ function pumpLoad() {
     const url = node.thumb;
     if (!img || !url) {
       node.loaded = true;
+      node.el.classList.remove("is-pending");
       loadBusy -= 1;
       continue;
     }
-    bakeThumb(url)
-      .then((src) => {
-        if (img.src !== src) img.src = src;
-        node.loaded = true;
-      })
-      .catch(() => {
-        img.src = url;
-        node.loaded = true;
-      })
-      .finally(() => {
-        loadBusy -= 1;
-        pumpLoad();
-      });
+    const done = () => {
+      node.loaded = true;
+      node.el.classList.add("is-ready");
+      node.el.classList.remove("is-pending");
+      loadBusy -= 1;
+      pumpLoad();
+    };
+    img.addEventListener("load", done, { once: true });
+    img.addEventListener("error", done, { once: true });
+    img.src = url;
   }
 }
 
@@ -362,6 +338,22 @@ function enqueueLoad(node, urgent) {
   pumpLoad();
 }
 
+function attachVideo(node) {
+  const clip = node.el.querySelector("video");
+  if (!clip || clip.getAttribute("src") || !clip.dataset.src) return;
+  videosOpen = true;
+  clip.preload = "metadata";
+  clip.src = clip.dataset.src;
+  clip.addEventListener("loadeddata", () => {
+    markFrame(node, clip);
+    showFrame(clip);
+  }, { once: true });
+  clip.addEventListener("error", () => {
+    node.el.classList.remove("is-pending");
+  }, { once: true });
+  showFrame(clip);
+}
+
 function revealWall(wall, visible) {
   const col = wall.px / Math.max(1, wall.step);
   const start = Math.max(0, Math.floor(col) - 1);
@@ -370,7 +362,9 @@ function revealWall(wall, visible) {
   wall.seen = start;
   wall.nodes.forEach((node, i) => {
     const c = i % wall.colsTotal;
-    if (c >= start && c < end) enqueueLoad(node, c < start + visible);
+    if (c < start || c >= end) return;
+    if (node.isVideo) attachVideo(node);
+    else enqueueLoad(node, c < start + visible);
   });
 }
 
@@ -393,20 +387,9 @@ function tickWall(wall, now) {
 }
 
 function leadStrip() {
-  let best = null;
-  let bestD = Infinity;
-  Object.keys(STRIPS).forEach((group) => {
-    const stop = stopByKey(group);
-    if (!stop) return;
-    const d = stop.until != null
-      ? (cam.progress < stop.at ? stop.at - cam.progress : cam.progress > stop.until ? cam.progress - stop.until : 0)
-      : Math.abs(cam.progress - stop.at);
-    if (d < bestD) {
-      bestD = d;
-      best = group;
-    }
-  });
-  return best;
+  if (runtime.phase !== "is-station") return null;
+  const key = stopAt(cam.progress).key;
+  return STRIPS[key] ? key : null;
 }
 
 function openStrip() {
@@ -496,8 +479,13 @@ function layoutStrip(group, nodes, vis, navW, areaW, areaH) {
       wall.visKey = 0;
       clip.style.opacity = "0";
       clip.style.pointerEvents = "none";
+      clip.style.visibility = "hidden";
+      clip.style.zIndex = "0";
+      clip.setAttribute("aria-hidden", "true");
       nodes.forEach((node) => {
         node.el.style.pointerEvents = "none";
+        const clipEl = node.el.querySelector("video");
+        if (clipEl) clipEl.pause();
       });
     }
     return;
@@ -512,6 +500,9 @@ function layoutStrip(group, nodes, vis, navW, areaW, areaH) {
     wall.visKey = vis;
     clip.style.opacity = String(vis);
     clip.style.pointerEvents = "none";
+    clip.style.visibility = "visible";
+    clip.style.zIndex = "8";
+    clip.setAttribute("aria-hidden", on ? "false" : "true");
     nodes.forEach((node) => {
       node.el.style.pointerEvents = on ? "auto" : "none";
     });
@@ -734,6 +725,7 @@ function layoutSoftware(nodes, vis, now, navW, areaW, areaH) {
         vy: Math.sin(ang) * spd,
         ph: hash01(n * 4.4) * Math.PI * 2,
         zf: 0.18 + hash01(n * 8.7) * 0.12,
+        nid: n,
       };
     }
     node.body.r = rad;
@@ -749,8 +741,10 @@ function layoutSoftware(nodes, vis, now, navW, areaW, areaH) {
   const pad = 8;
   live.forEach((node) => {
     const b = node.body;
-    b.vx += (Math.random() - 0.5) * 0.008 * dt;
-    b.vy += (Math.random() - 0.5) * 0.008 * dt;
+    const t = tms * 0.001;
+    const nid = b.nid || 0;
+    b.vx += (hashNoise(nid * 11.3 + 2.4, t * 0.9) - 0.5) * 0.008 * dt;
+    b.vy += (hashNoise(nid * 7.91 + 5.1, t * 0.82) - 0.5) * 0.008 * dt;
     let spd = Math.hypot(b.vx, b.vy);
     if (spd < 0.001) {
       b.vx = 0.1;
@@ -839,22 +833,9 @@ function layoutSoftware(nodes, vis, now, navW, areaW, areaH) {
 }
 
 export function startMedia() {
-  const images = [];
-  const imageJobs = new Map();
-  const pushImage = (url, apply, meter) => {
-    if (!url) return;
-    let job = imageJobs.get(url);
-    if (!job) {
-      job = { url, applies: [], meters: [] };
-      imageJobs.set(url, job);
-      images.push(job);
-    }
-    if (apply) job.applies.push(apply);
-    if (meter) job.meters.push(meter);
-  };
+  videosOpen = true;
   const avatar = document.querySelector(".cv-avatar");
-  let avatarMeter = null;
-  if (avatar?.dataset.src) {
+  if (avatar?.dataset.src && !avatar.getAttribute("src")) {
     let photo = avatar.closest(".cv-photo");
     if (!photo) {
       photo = document.createElement("span");
@@ -862,116 +843,9 @@ export function startMedia() {
       avatar.replaceWith(photo);
       photo.appendChild(avatar);
     }
-    avatarMeter = document.createElement("b");
-    avatarMeter.className = "clip-load";
-    avatarMeter.hidden = true;
-    photo.appendChild(avatarMeter);
-    pushImage(avatar.dataset.src, (shown) => {
-      avatar.src = shown || avatar.dataset.src;
-    }, avatarMeter);
+    avatar.src = thumbURL("images/TouXiang.png") || avatar.dataset.src;
   }
-  fieldNodes.forEach((node) => {
-    if (node.isVideo) {
-      if (!node.thumb) return;
-      pushImage(node.thumb, (shown) => {
-        const clip = node.el.querySelector("video");
-        if (clip && !clip.poster) clip.poster = shown || node.thumb;
-      });
-      return;
-    }
-    const url = node.thumb || node.src;
-    const meter = node.el.querySelector(".clip-load");
-    pushImage(url, (shown) => {
-      const img = node.el.querySelector("img");
-      if (img && !img.getAttribute("src")) img.src = shown || url;
-      node.loaded = true;
-    }, meter);
-  });
-
-  const later = (fn) => window.setTimeout(fn, 0);
-
-  let cursor = 0;
-  let busy = 0;
-  let videosBegun = false;
-  const pumpImages = () => {
-    if (cursor >= images.length && busy === 0) {
-      if (!videosBegun) {
-        videosBegun = true;
-        later(pumpVideos);
-      }
-      return;
-    }
-    let started = 0;
-    while (busy < LOAD_N && cursor < images.length && started < LOAD_N) {
-      started += 1;
-      const job = images[cursor];
-      cursor += 1;
-      busy += 1;
-      job.meters.forEach((meter) => {
-        meter.hidden = false;
-        meter.textContent = "0%";
-      });
-      const xhr = new XMLHttpRequest();
-      xhr.open("GET", job.url);
-      xhr.responseType = "blob";
-      xhr.onprogress = (event) => {
-        if (!event.lengthComputable || !event.total) return;
-        const pct = Math.min(100, Math.round((event.loaded / event.total) * 100));
-        job.meters.forEach((meter) => {
-          meter.textContent = `${pct}%`;
-        });
-      };
-      const done = (shown) => {
-        job.applies.forEach((apply) => apply(shown));
-        job.meters.forEach((meter) => {
-          meter.hidden = true;
-        });
-        busy -= 1;
-        later(pumpImages);
-      };
-      xhr.onload = () => {
-        const shown = xhr.status < 400 && xhr.response ? URL.createObjectURL(xhr.response) : "";
-        done(shown);
-      };
-      xhr.onerror = () => done("");
-      xhr.send();
-    }
-    if (cursor < images.length && busy === 0) later(pumpImages);
-  };
-
-  const videos = fieldNodes.filter((node) => node.isVideo);
-  let videoAt = 0;
-  let videoBusy = 0;
-  const pumpVideos = () => {
-    videosOpen = true;
-    if (!videos.length || (videoAt >= videos.length && videoBusy === 0)) return;
-    let started = 0;
-    while (videoBusy < LOAD_N && videoAt < videos.length && started < LOAD_N) {
-      started += 1;
-      const node = videos[videoAt];
-      videoAt += 1;
-      const clip = node.el.querySelector("video");
-      if (!clip) continue;
-      videoBusy += 1;
-      bindClipMeter(node, clip);
-      const done = () => {
-        clip.removeEventListener("loadeddata", done);
-        clip.removeEventListener("error", done);
-        videoBusy -= 1;
-        later(pumpVideos);
-      };
-      clip.preload = "auto";
-      clip.addEventListener("loadeddata", done);
-      clip.addEventListener("error", done);
-      if (!clip.getAttribute("src") && clip.dataset.src) clip.src = clip.dataset.src;
-      else if (clip.readyState >= 2) done();
-      showFrame(clip);
-    }
-    if (videoAt < videos.length && videoBusy === 0) later(pumpVideos);
-  };
-
-  if (!images.length) pumpVideos();
-  else pumpImages();
+  (nodesByGroup.software || []).forEach((node) => enqueueLoad(node, true));
 }
 
 export { buildFields, layoutFields };

@@ -59,7 +59,7 @@ body {
 }
 
 body {
-  font-family: "Noto Sans SC", system-ui, sans-serif;
+  font-family: "Noto Sans SC", system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
   background: var(--paper);
   color: var(--ink);
 }
@@ -95,6 +95,10 @@ body {
 
 #ash {
   z-index: 3;
+}
+
+canvas.is-off {
+  visibility: hidden;
 }
 
 .vignette {
@@ -137,7 +141,7 @@ body {
   border: 0;
   color: var(--ink);
   cursor: pointer;
-  font-family: "Chivo Mono", monospace;
+  font-family: "Chivo Mono", ui-monospace, monospace;
   font-size: 16px;
   font-weight: 600;
   letter-spacing: 0.12em;
@@ -175,7 +179,7 @@ html[data-theme="dark"] .theme-switch .theme-dark {
 .rail-kicker,
 .rail-item,
 .beacon span {
-  font-family: "Chivo Mono", monospace;
+  font-family: "Chivo Mono", ui-monospace, monospace;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   font-size: 12px;
@@ -192,7 +196,7 @@ html[data-theme="dark"] .theme-switch .theme-dark {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-family: Syne, sans-serif;
+  font-family: Syne, system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
   font-size: 16px;
   font-weight: 800;
   letter-spacing: 0.16em;
@@ -272,7 +276,7 @@ html[data-theme="dark"] .theme-switch .theme-dark {
 }
 
 .fly-title {
-  font-family: Syne, sans-serif;
+  font-family: Syne, system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
   font-size: clamp(72px, 13vw, 210px);
   line-height: 0.82;
   letter-spacing: -0.05em;
@@ -352,6 +356,8 @@ html[data-theme="dark"] .theme-switch .theme-dark {
   flex-direction: column;
   align-items: center;
   gap: 6px;
+  z-index: 9;
+  pointer-events: auto;
 }
 
 #enter span {
@@ -360,7 +366,7 @@ html[data-theme="dark"] .theme-switch .theme-dark {
 }
 
 #enter strong {
-  font-family: Syne, sans-serif;
+  font-family: Syne, system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
   font-size: 22px;
   letter-spacing: 0.28em;
   border-bottom: 1px solid var(--ink);
@@ -450,7 +456,7 @@ html[data-theme="dark"] .theme-switch .theme-dark {
   margin: 0;
   pointer-events: none;
   z-index: 6;
-  font-family: "Chivo Mono", monospace;
+  font-family: "Chivo Mono", ui-monospace, monospace;
   letter-spacing: 0.2em;
   text-transform: uppercase;
   font-size: 12px;
@@ -486,7 +492,7 @@ html[data-theme="dark"] .theme-switch .theme-dark {
 }
 
 .dot span {
-  font-family: "Chivo Mono", monospace;
+  font-family: "Chivo Mono", ui-monospace, monospace;
   font-size: 12px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -575,8 +581,9 @@ html[data-theme="dark"] .theme-switch .theme-dark {
 .works-clip {
   position: absolute;
   overflow: hidden;
-  z-index: 8;
+  z-index: 0;
   pointer-events: none;
+  visibility: hidden;
   contain: strict;
   transform: translateZ(0);
   background: transparent;
@@ -601,8 +608,35 @@ html[data-theme="dark"] .theme-switch .theme-dark {
   max-width: none;
   overflow: hidden;
   contain: layout paint;
-  background: #1a1814;
+  background: var(--plate-fill);
   transform: translateZ(0);
+}
+
+.dot-work.is-pending::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, var(--plate-fill) 12%, var(--line) 46%, var(--plate-fill) 78%);
+  background-size: 180% 100%;
+  animation: wall-skel 1.1s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.dot-work.is-ready::before {
+  display: none;
+}
+
+.dot-work.is-pending img {
+  opacity: 0;
+}
+
+.dot-work.is-ready img {
+  opacity: 1;
+}
+
+@keyframes wall-skel {
+  0% { background-position: 100% 0; }
+  100% { background-position: -80% 0; }
 }
 
 .dot-work.is-wall span {
@@ -619,7 +653,7 @@ html[data-theme="dark"] .theme-switch .theme-dark {
   z-index: 3;
   margin: 0;
   padding: 6px 10px;
-  font-family: "Chivo Mono", monospace;
+  font-family: "Chivo Mono", ui-monospace, monospace;
   font-size: 15px;
   font-weight: 600;
   font-style: normal;
@@ -803,7 +837,7 @@ html[data-theme="dark"] .dot-soft.has-img:focus-visible img {
   display: grid;
   place-items: center;
   margin: 0;
-  font-family: "Chivo Mono", monospace;
+  font-family: "Chivo Mono", ui-monospace, monospace;
   font-size: 12px;
   letter-spacing: 0.18em;
   color: var(--ink);
@@ -848,7 +882,7 @@ html[data-theme="dark"] .dot-soft.has-img:focus-visible img {
   transform: translateX(-50%);
   white-space: nowrap;
   text-align: center;
-  font-family: "Chivo Mono", monospace;
+  font-family: "Chivo Mono", ui-monospace, monospace;
   font-size: 12px;
   letter-spacing: 0.16em;
   color: var(--on-photo);
@@ -907,13 +941,13 @@ html[data-theme="dark"] .dot-soft.has-img:focus-visible img {
 }
 
 .holo h2 {
-  font-family: Syne, sans-serif;
+  font-family: Syne, system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
   font-size: 28px;
   margin: 6px 0 8px;
 }
 
 .holo-code {
-  font-family: "Chivo Mono", monospace;
+  font-family: "Chivo Mono", ui-monospace, monospace;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   font-size: 11px;
@@ -921,7 +955,7 @@ html[data-theme="dark"] .dot-soft.has-img:focus-visible img {
 }
 
 .holo-meta {
-  font-family: "Chivo Mono", monospace;
+  font-family: "Chivo Mono", ui-monospace, monospace;
   letter-spacing: 0.08em;
   font-size: 11px;
   color: var(--muted);
@@ -995,7 +1029,7 @@ html[data-theme="dark"] .dot-soft.has-img:focus-visible img {
 }
 
 .cv-left h2 {
-  font-family: "Noto Sans SC", sans-serif;
+  font-family: "Noto Sans SC", system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
   font-size: clamp(28px, 2.4vw, 52px);
   margin: 4px 0 6px;
   letter-spacing: 0.08em;
@@ -1033,13 +1067,42 @@ html[data-theme="dark"] .dot-soft.has-img:focus-visible img {
   color: var(--ink);
 }
 
+.cv-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.cv-section {
+  margin: 6px 0 0;
+  font-family: "Chivo Mono", ui-monospace, monospace;
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.cv-duty:empty {
+  display: none;
+}
+
+.cv-duty:not(:empty) {
+  display: block;
+  margin-top: 4px;
+  min-height: 1.35em;
+  font-size: 13px;
+  line-height: 1.5;
+  font-weight: 400;
+  color: var(--muted);
+}
+
 .cv-job {
-  margin: 0 0 12px;
+  margin: 0;
 }
 
 .cv-job .cv-time {
   display: block;
-  font-family: "Chivo Mono", monospace;
+  font-family: "Chivo Mono", ui-monospace, monospace;
   letter-spacing: 0.08em;
   color: var(--muted);
   margin-bottom: 2px;
@@ -1127,16 +1190,24 @@ html[data-theme="dark"] .dot-soft.has-img:focus-visible img {
 }
 
 .cv-job.s5 {
-  margin: 0 0 6px;
-  font-size: clamp(11px, 0.7vw, 12px);
-  line-height: 1.4;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
   color: var(--muted);
 }
 
 .cv-job.s5 .cv-time {
-  display: inline;
-  font-size: clamp(10px, 0.6vw, 10px);
-  margin: 0 8px 0 0;
+  display: block;
+  font-size: 13px;
+  margin: 0 0 2px;
+}
+
+.cv-job.s5 strong,
+.cv-job.s5 b {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
 }
 
 .float-wrap {
@@ -1203,7 +1274,7 @@ html[data-theme="dark"] .dot-soft.has-img:focus-visible img {
 }
 
 .cv-time {
-  font-family: "Chivo Mono", monospace;
+  font-family: "Chivo Mono", ui-monospace, monospace;
 }
 
 .rail {
@@ -1245,7 +1316,7 @@ html[data-theme="dark"] .dot-soft.has-img:focus-visible img {
 }
 
 .rail-now {
-  font-family: "Chivo Mono", monospace;
+  font-family: "Chivo Mono", ui-monospace, monospace;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   font-size: 16px;
@@ -1364,6 +1435,7 @@ body.is-boot .hud,
 body.is-gate .boot,
 body.is-station .boot {
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
 }
 

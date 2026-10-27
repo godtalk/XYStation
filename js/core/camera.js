@@ -1,5 +1,5 @@
-import { cam } from "./state.js";
-import { SPACE, px, py, pz, rxk, ryk } from "./data.js";
+import { cam } from "state";
+import { SPACE, px, py, pz, rxk, ryk } from "path";
 
 export function sample(keys, t) {
   if (t <= keys[0][0]) return keys[0][1];

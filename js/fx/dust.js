@@ -1,7 +1,7 @@
-import { beginView, project } from "./camera.js?v=night1";
-import { cam, runtime } from "./state.js";
-import { SPACE } from "./data.js";
-import { clamp, screenFit } from "./util.js";
+import { beginView, project } from "camera";
+import { cam, runtime } from "state";
+import { SPACE } from "path";
+import { clamp, hash01, isCoarse, screenFit } from "util";
 
 const canvas = document.getElementById("view");
 const ctx = canvas.getContext("2d");
@@ -136,71 +136,83 @@ function erodeInk(src, w, h, minX, minY, maxX, maxY, radius) {
   return out;
 }
 
+function roll(i, k) {
+  return hash01(i * 17.13 + k * 91.7);
+}
+
 export function spawnDust() {
   const { density, wide, h } = screenFit();
-  const dustN = Math.round(clamp(220 * density * density, 110, 560));
-  const moteN = Math.round(clamp(36 * density * density, 16, 88));
+  let dustN = Math.round(clamp(220 * density * density, 110, 560));
+  let moteN = Math.round(clamp(36 * density * density, 16, 88));
   const sx = 110;
   const sy = 64 * clamp(h / 1080, 0.8, 1.5);
   const sz = 120 * wide;
   const glyphs = sampleWord("XYSTATION");
-  const ashN = Math.round(clamp(24000 * density * density, 13000, 24000));
+  let ashN = Math.round(clamp(2200 * density * density, 900, 2800));
+  if (isCoarse()) {
+    dustN = Math.round(dustN * 0.5);
+    moteN = Math.round(moteN * 0.5);
+    ashN = Math.min(1200, Math.round(ashN * 0.5));
+  }
   dust.length = 0;
   motes.length = 0;
   ash.length = 0;
   for (let i = 0; i < dustN; i += 1) {
-    const x = (Math.random() - 0.5) * sx;
-    const y = (Math.random() - 0.5) * sy;
-    const z = (Math.random() - 0.4) * sz;
+    const x = (roll(i, 1) - 0.5) * sx;
+    const y = (roll(i, 2) - 0.5) * sy;
+    const z = (roll(i, 3) - 0.4) * sz;
     dust.push({
-      x, y, z, bx: x, by: y, bz: z, ph: Math.random() * Math.PI * 2, glyph: false,
+      x, y, z, bx: x, by: y, bz: z, ph: roll(i, 4) * Math.PI * 2, glyph: false,
     });
   }
   glyphs.forEach((g, i) => {
-    const x = (Math.random() - 0.5) * sx;
-    const y = (Math.random() - 0.5) * sy;
-    const z = (Math.random() - 0.4) * sz;
-    const boom = 1.12 + Math.random() * 0.55;
+    const id = dustN + i;
+    const x = (roll(id, 1) - 0.5) * sx;
+    const y = (roll(id, 2) - 0.5) * sy;
+    const z = (roll(id, 3) - 0.4) * sz;
+    const boom = 1.12 + roll(id, 4) * 0.55;
     dust.push({
       x, y, z, bx: x * boom, by: y * boom, bz: z * boom,
-      gx: g.tx + (Math.random() - 0.5) * 16,
-      gy: g.ty + (Math.random() - 0.5) * 10,
-      gz: g.tz + (Math.random() - 0.5) * 20,
+      gx: g.tx + (roll(id, 5) - 0.5) * 16,
+      gy: g.ty + (roll(id, 6) - 0.5) * 10,
+      gz: g.tz + (roll(id, 7) - 0.5) * 20,
       tx: g.tx, ty: g.ty, tz: g.tz,
-      ox: (Math.random() - 0.5) * 0.08,
-      oy: (Math.random() - 0.5) * 0.06,
-      oz: (Math.random() - 0.5) * 0.08,
-      ph: Math.random() * Math.PI * 2 + i * 0.01,
+      ox: (roll(id, 8) - 0.5) * 0.08,
+      oy: (roll(id, 9) - 0.5) * 0.06,
+      oz: (roll(id, 10) - 0.5) * 0.08,
+      ph: roll(id, 11) * Math.PI * 2 + i * 0.01,
       glyph: true,
       edge: g.edge,
     });
   });
   for (let i = 0; i < moteN; i += 1) {
-    let x = (Math.random() - 0.5) * sx * 0.78;
-    let y = (Math.random() - 0.5) * sy * 0.85;
-    let z = (Math.random() - 0.3) * sz * 0.83;
+    const id = 4000 + i;
+    let x = (roll(id, 1) - 0.5) * sx * 0.78;
+    let y = (roll(id, 2) - 0.5) * sy * 0.85;
+    let z = (roll(id, 3) - 0.3) * sz * 0.83;
     if (Math.abs(x) < 5 && Math.abs(y) < 3.5) {
-      x += (x < 0 ? -1 : 1) * (8 + Math.random() * 14);
-      y += (y < 0 ? -1 : 1) * (6 + Math.random() * 10);
+      x += (x < 0 ? -1 : 1) * (8 + roll(id, 4) * 14);
+      y += (y < 0 ? -1 : 1) * (6 + roll(id, 5) * 10);
     }
     motes.push({
       x, y, z, bx: x, by: y, bz: z,
-      r: 0.16 + Math.random() * 0.32,
-      ph: Math.random() * Math.PI * 2,
+      r: 0.16 + roll(id, 6) * 0.32,
+      ph: roll(id, 7) * Math.PI * 2,
     });
   }
   for (let i = 0; i < ashN; i += 1) {
-    const band = Math.random();
+    const id = 8000 + i;
+    const band = roll(id, 1);
     const near = band < 0.2;
     const mid = band < 0.55;
     const span = near ? 0.22 : mid ? 0.55 : 1;
     ash.push({
-      bx: (Math.random() - 0.5) * sx * span,
-      by: (Math.random() - 0.5) * sy * span,
-      bz: (Math.random() - (near ? 0.15 : 0.4)) * sz * span,
-      mass: near ? 0.16 + Math.random() * 0.22 : mid ? 0.07 + Math.random() * 0.1 : 0.03 + Math.random() * 0.05,
+      bx: (roll(id, 2) - 0.5) * sx * span,
+      by: (roll(id, 3) - 0.5) * sy * span,
+      bz: (roll(id, 4) - (near ? 0.15 : 0.4)) * sz * span,
+      mass: near ? 0.16 + roll(id, 5) * 0.22 : mid ? 0.07 + roll(id, 6) * 0.1 : 0.03 + roll(id, 7) * 0.05,
       amp: near ? 2.8 : mid ? 1.8 : 1.1,
-      ph: Math.random() * Math.PI * 2,
+      ph: roll(id, 8) * Math.PI * 2,
       x: 0, y: 0, z: 0,
     });
   }
@@ -215,7 +227,12 @@ function titleHold() {
   return form * form * (3 - 2 * form);
 }
 
+export function dustAlive() {
+  return !runtime.ready || cam.progress < 3.15;
+}
+
 export function tickDust(now) {
+  if (!dustAlive()) return;
   const t = now / 1000;
   const hold = titleHold();
   dust.forEach((p) => {
@@ -248,17 +265,42 @@ export function tickDust(now) {
 
 function drawFieldLinks() {}
 
+let tintCache = null;
+let tintKey = "";
+
 function dustTint() {
+  const key = document.documentElement.dataset.theme || "dark";
+  if (tintCache && tintKey === key) return tintCache;
   const style = getComputedStyle(document.documentElement);
-  return {
+  tintKey = key;
+  tintCache = {
     fill: style.getPropertyValue("--dust").trim() || "#ffffff",
     stroke: style.getPropertyValue("--dust-stroke").trim() || "rgba(255, 255, 255, 0.42)",
     title: style.getPropertyValue("--title-dust").trim() || "#ffffff",
     titleScale: Number.parseFloat(style.getPropertyValue("--title-scale")) || 1,
   };
+  return tintCache;
 }
 
+export function invalidateDustTint() {
+  tintCache = null;
+}
+
+let viewAsleep = false;
+
 export function drawWorld() {
+  if (!dustAlive()) {
+    if (!viewAsleep) {
+      ctx.clearRect(0, 0, innerWidth, innerHeight);
+      canvas.classList.add("is-off");
+      viewAsleep = true;
+    }
+    return;
+  }
+  if (viewAsleep) {
+    canvas.classList.remove("is-off");
+    viewAsleep = false;
+  }
   beginView();
   ctx.clearRect(0, 0, innerWidth, innerHeight);
   const tint = dustTint();

@@ -1,8 +1,10 @@
-import { cam, runtime } from "./state.js";
-import { beaconWorld, cards, fields, holoVisibility } from "./data.js?v=mp4case";
-import { project } from "./camera.js";
-import { clamp } from "./util.js";
-import { layoutFields } from "./fields.js?v=imgprog";
+import { cam, runtime } from "state";
+import { beaconWorld, holoVisibility } from "path";
+import { cards } from "cards";
+import { fields } from "catalog";
+import { project } from "camera";
+import { clamp } from "util";
+import { layoutFields } from "fields";
 
 const beacons = [...document.querySelectorAll(".beacon")];
 const station = document.getElementById("station");
@@ -54,8 +56,11 @@ function layoutHolos() {
       el.style.opacity = "0";
       el.style.filter = "none";
       el.style.pointerEvents = "none";
+      el.style.zIndex = "0";
+      el.style.visibility = "hidden";
       return;
     }
+    el.style.visibility = "visible";
     const slam = slamOf(vis);
     const resumeWide = innerWidth >= 1100 && innerWidth > innerHeight;
     if (id === "resume" && resumeWide) {
@@ -91,7 +96,7 @@ function layoutHolos() {
     el.style.filter = slam.blur < 0.4 ? "none" : `blur(${slam.blur.toFixed(1)}px)`;
     el.style.opacity = String(Math.pow(vis, 0.65));
     el.style.pointerEvents = vis > 0.42 ? "auto" : "none";
-    el.style.zIndex = String(4 + Math.round(vis * 6));
+    el.style.zIndex = id === "contact" ? "10" : String(4 + Math.round(vis * 6));
   });
   syncScrollTracks();
 }

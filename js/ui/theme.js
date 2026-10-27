@@ -1,5 +1,6 @@
-import { THEMES } from "./data.js?v=glow15";
-import { refreshVortex } from "./vortex.js?v=glow15";
+import { THEMES } from "themes";
+import { refreshVortex } from "vortex";
+import { invalidateDustTint } from "dust";
 
 const KEY = "xystation-theme";
 const CSS_MAP = {
@@ -40,6 +41,7 @@ export function applyTheme(mode) {
     root.style.setProperty(cssVar, pack[key]);
   });
   refreshVortex();
+  invalidateDustTint();
   try {
     localStorage.setItem(KEY, next);
   } catch {

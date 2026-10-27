@@ -1,21 +1,21 @@
-import { cam, runtime } from "./state.js";
+import { cam, runtime } from "state";
 import {
   PATH_MAX,
   NAV_STOPS,
   VEL_MAX,
   stopAt,
   stopByKey,
-} from "./data.js?v=mp4case";
-import { poseAt } from "./camera.js";
-import { layoutBeacons } from "./holo.js?v=imgprog";
-import { clamp } from "./util.js";
+  stopWindow,
+} from "path";
+import { poseAt } from "camera";
+import { layoutBeacons } from "holo";
+import { clamp } from "util";
 
 const body = document.body;
 const title = document.querySelector(".fly-title");
 const gateUi = [...document.querySelectorAll(".gate-ui")];
 
-const SNAP_IDLE = 280;
-const SNAP_DIST = 0.45;
+const SNAP_IDLE = 220;
 const COAST_DAMP = 0.9;
 const REST_VEL = 0.00045;
 const WHEEL_BOOST = 1;
@@ -88,27 +88,20 @@ function busy() {
 }
 
 function snapTarget(t) {
+  for (const stop of NAV_STOPS) {
+    const { start, end } = stopWindow(stop);
+    if (t >= start - 0.06 && t <= end + 0.06) return null;
+  }
   let best = null;
   let bestD = Infinity;
   for (const stop of NAV_STOPS) {
-    if (stop.key === "gate") continue;
-    if (stop.until != null) {
-      if (t >= stop.at && t <= stop.until) return null;
-      const pt = t < stop.at ? stop.at : stop.until;
-      const d = Math.abs(t - pt);
-      if (d < bestD) {
-        bestD = d;
-        best = pt;
-      }
-    } else {
-      const d = Math.abs(t - stop.at);
-      if (d < bestD) {
-        bestD = d;
-        best = stop.at;
-      }
+    const d = Math.abs(t - stop.at);
+    if (d < bestD) {
+      bestD = d;
+      best = stop.at;
     }
   }
-  if (best == null || bestD < 0.02 || bestD > SNAP_DIST) return null;
+  if (best == null || bestD < 0.02) return null;
   return best;
 }
 

@@ -1,5 +1,5 @@
-import { cam, runtime } from "./state.js";
-import { clamp } from "./util.js";
+import { cam, runtime } from "state";
+import { clamp, NOISE_SEED } from "util";
 
 const canvas = document.getElementById("cloud");
 const gl = canvas?.getContext("webgl", {
@@ -38,6 +38,8 @@ uniform vec2 uLook;
 uniform float uSize;
 uniform float uAspect;
 uniform float uScatter;
+uniform float uFit;
+uniform vec2 uShift;
 void main() {
   float c = cos(uYaw);
   float s = sin(uYaw);
@@ -49,7 +51,8 @@ void main() {
   float ang2 = fract(aSeed * 13.37) * 6.28318;
   float reach = 0.12 + fract(aSeed * 7.91) * 0.55;
   vec2 fly = vec2(cos(ang), sin(ang2)) * reach * uScatter;
-  gl_Position = vec4(p.x * 0.29 / uAspect + uLook.x + fly.x, p.y * 0.29 + 0.4 + uLook.y + fly.y, 0.0, 1.0);
+  float fit = max(uFit, 0.2);
+  gl_Position = vec4(p.x * 0.29 * fit / uAspect + uLook.x + fly.x + uShift.x, p.y * 0.29 * fit + 0.4 + uLook.y + fly.y + uShift.y, 0.0, 1.0);
   gl_PointSize = uSize * mix(1.0, 0.62, uScatter);
 }
 `;
@@ -84,6 +87,8 @@ const cloud = {
   size: null,
   color: null,
   alpha: null,
+  fit: null,
+  shift: null,
   depthYaw: null,
   depthLook: null,
   depthAspect: null,
@@ -128,6 +133,8 @@ function init() {
   cloud.size = gl.getUniformLocation(program, "uSize");
   cloud.color = gl.getUniformLocation(program, "uColor");
   cloud.alpha = gl.getUniformLocation(program, "uAlpha");
+  cloud.fit = gl.getUniformLocation(program, "uFit");
+  cloud.shift = gl.getUniformLocation(program, "uShift");
   gl.enable(gl.BLEND);
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
   const dvs = compile(gl.VERTEX_SHADER, DEPTH_VERT);
@@ -272,7 +279,7 @@ function sampleCloud(text) {
     link(tris[i + 2], tris[i], face);
   }
   const pts = [];
-  let salt = 1;
+  let salt = (Math.abs(Math.floor(NOISE_SEED * 16807)) % 2147483646) + 1;
   const rnd = () => {
     salt = (salt * 16807) % 2147483647;
     return (salt - 1) / 2147483646;
@@ -338,6 +345,38 @@ function sampleCloud(text) {
   return { pts: new Float32Array(pts), mesh };
 }
 
+function decimate(pts, keep) {
+  const n = Math.floor(pts.length / 4);
+  const want = Math.max(1, Math.round(n * keep));
+  const out = new Float32Array(want * 4);
+  for (let i = 0; i < want; i += 1) {
+    const src = Math.min(n - 1, Math.floor((i * n) / want)) * 4;
+    out[i * 4] = pts[src];
+    out[i * 4 + 1] = pts[src + 1];
+    out[i * 4 + 2] = pts[src + 2];
+    out[i * 4 + 3] = pts[src + 3];
+  }
+  return out;
+}
+
+const riders = [];
+
+export function mountPointClouds(list) {
+  riders.length = 0;
+  (list || []).forEach((item) => riders.push(item));
+}
+
+function windowVis(at, until) {
+  const t = cam.progress;
+  if (t < at || t > until) return 0;
+  const span = Math.max(0.001, until - at);
+  const edge = Math.min(0.28, span * 0.32);
+  const into = Math.min(t - at, until - t);
+  if (into >= edge) return 1;
+  const u = into / edge;
+  return u * u * (3 - 2 * u);
+}
+
 export function loadPointModel(url) {
   if (!gl) return Promise.resolve();
   init();
@@ -353,6 +392,11 @@ export function loadPointModel(url) {
       cloud.count = built.pts.length / 4;
       gl.bindBuffer(gl.ARRAY_BUFFER, cloud.buffer);
       gl.bufferData(gl.ARRAY_BUFFER, built.pts, gl.STATIC_DRAW);
+      const thin = decimate(built.pts, 0.62);
+      cloud.thinCount = thin.length / 4;
+      if (!cloud.thin) cloud.thin = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, cloud.thin);
+      gl.bufferData(gl.ARRAY_BUFFER, thin, gl.STATIC_DRAW);
       if (cloud.shell && built.mesh.length) {
         cloud.shellCount = built.mesh.length / 3;
         gl.bindBuffer(gl.ARRAY_BUFFER, cloud.shell);
@@ -372,6 +416,28 @@ export function resizePoints() {
   if (gl) gl.viewport(0, 0, canvas.width, canvas.height);
 }
 
+let pointsAsleep = false;
+
+function bindCloud(buffer) {
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+  gl.enableVertexAttribArray(cloud.aPos);
+  gl.vertexAttribPointer(cloud.aPos, 3, gl.FLOAT, false, 16, 0);
+  gl.enableVertexAttribArray(cloud.aSeed);
+  gl.vertexAttribPointer(cloud.aSeed, 1, gl.FLOAT, false, 16, 12);
+}
+
+function drawBatch(buffer, count, yaw, scatter, alpha, fit, shiftX, shiftY, now) {
+  if (!buffer || !count || alpha < 0.02) return;
+  bindCloud(buffer);
+  gl.uniform1f(cloud.yaw, yaw);
+  gl.uniform1f(cloud.time, (now || 0) / 1000);
+  gl.uniform1f(cloud.scatter, scatter);
+  gl.uniform1f(cloud.alpha, alpha);
+  gl.uniform1f(cloud.fit, fit);
+  gl.uniform2f(cloud.shift, shiftX, shiftY);
+  gl.drawArrays(gl.POINTS, 0, count);
+}
+
 export function drawPoints(now) {
   if (!gl || !cloud.program || !cloud.count) return;
   const form = runtime.ready ? 1 - clamp((cam.progress - 0.06) / 2.05, 0, 1) : 1;
@@ -379,32 +445,70 @@ export function drawPoints(now) {
   const scatter = 1 - hold;
   const fade = clamp((cam.progress - 1.6) / 2.4, 0, 1);
   const vis = 1 - fade * fade * (3 - 2 * fade);
+  let riderOn = false;
+  for (let i = 0; i < riders.length; i += 1) {
+    if (windowVis(riders[i].at, riders[i].until) > 0.02) riderOn = true;
+  }
+  if (vis < 0.02 && !riderOn) {
+    if (!pointsAsleep) {
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.clearColor(0, 0, 0, 0);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      canvas.classList.add("is-off");
+      pointsAsleep = true;
+    }
+    return;
+  }
+  if (pointsAsleep) {
+    canvas.classList.remove("is-off");
+    pointsAsleep = false;
+  }
   gl.viewport(0, 0, canvas.width, canvas.height);
   gl.clearColor(0, 0, 0, 0);
   gl.clear(gl.COLOR_BUFFER_BIT);
-  if (vis < 0.02) return;
   syncTint();
   const dpr = Math.min(devicePixelRatio || 1, 2);
-  const yaw = tankYaw(now);
   const lookX = cam.lookX * 0.045;
   const lookY = cam.lookY * -0.03;
   const aspect = canvas.height > 0 ? canvas.width / canvas.height : 1;
   gl.disable(gl.DEPTH_TEST);
   gl.useProgram(cloud.program);
-  gl.bindBuffer(gl.ARRAY_BUFFER, cloud.buffer);
-  gl.enableVertexAttribArray(cloud.aPos);
-  gl.vertexAttribPointer(cloud.aPos, 3, gl.FLOAT, false, 16, 0);
-  gl.enableVertexAttribArray(cloud.aSeed);
-  gl.vertexAttribPointer(cloud.aSeed, 1, gl.FLOAT, false, 16, 12);
-  gl.uniform1f(cloud.yaw, yaw);
-  gl.uniform1f(cloud.time, (now || 0) / 1000);
   gl.uniform2f(cloud.look, lookX, lookY);
   gl.uniform1f(cloud.aspect, aspect);
-  gl.uniform1f(cloud.scatter, scatter);
   gl.uniform1f(cloud.size, Math.max(1.26, 1.68 * dpr));
   gl.uniform3f(cloud.color, tint[0], tint[1], tint[2]);
-  gl.uniform1f(cloud.alpha, 0.7 * (1 - scatter * 0.55) * vis);
-  gl.drawArrays(gl.POINTS, 0, cloud.count);
+  if (vis >= 0.02) {
+    drawBatch(
+      cloud.buffer,
+      cloud.count,
+      tankYaw(now),
+      scatter,
+      0.7 * (1 - scatter * 0.55) * vis,
+      1,
+      0,
+      0,
+      now,
+    );
+  }
+  const thin = cloud.thin || cloud.buffer;
+  const thinCount = cloud.thinCount || Math.round(cloud.count * 0.62);
+  for (let i = 0; i < riders.length; i += 1) {
+    const item = riders[i];
+    const v = windowVis(item.at, item.until);
+    if (v < 0.02) continue;
+    const shift = item.shift || [0, 0];
+    drawBatch(
+      thin,
+      thinCount,
+      (item.yaw || 0) + (now || 0) / 1000 * 0.12,
+      0,
+      0.5 * v,
+      item.fit || 0.68,
+      shift[0],
+      shift[1],
+      now,
+    );
+  }
 }
 
 let spin = 0.85;

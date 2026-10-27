@@ -1,6 +1,6 @@
-import { cam } from "./state.js";
-import { THEMES } from "./data.js?v=glow15";
-import { clamp, hash01, screenFit } from "./util.js";
+import { cam } from "state";
+import { THEMES } from "themes";
+import { clamp, hash01, isCoarse, screenFit } from "util";
 
 const ash = document.getElementById("ash");
 const ashGl = ash.getContext("webgl", {
@@ -207,6 +207,7 @@ function buildVortex() {
     const span = short * 0.92;
     segments = Math.round(clamp((span / 1.55) * density, look.segmentsMin, look.segmentsMax));
   }
+  if (isCoarse()) segments = Math.min(180, Math.round(segments * 0.65));
   if (vortex.segments === segments && vortex.lookKey === name) return;
   vortex.lookKey = name;
   vortex.segments = segments;
@@ -241,14 +242,29 @@ export function resizeVortex() {
   buildVortex();
 }
 
+let vortexAsleep = false;
+
 export function drawVortex(now) {
   if (!ashGl || !vortex.program || !vortex.count) return;
   const fade = clamp((cam.progress - 0.2) / 3.4, 0, 1);
   const vis = 1 - fade * fade * (3 - 2 * fade);
+  if (vis < 0.02) {
+    if (!vortexAsleep) {
+      ashGl.viewport(0, 0, ash.width, ash.height);
+      ashGl.clearColor(0, 0, 0, 0);
+      ashGl.clear(ashGl.COLOR_BUFFER_BIT);
+      ash.classList.add("is-off");
+      vortexAsleep = true;
+    }
+    return;
+  }
+  if (vortexAsleep) {
+    ash.classList.remove("is-off");
+    vortexAsleep = false;
+  }
   ashGl.viewport(0, 0, ash.width, ash.height);
   ashGl.clearColor(0, 0, 0, 0);
   ashGl.clear(ashGl.COLOR_BUFFER_BIT);
-  if (vis < 0.02) return;
   const dpr = Math.min(devicePixelRatio || 1, 2);
   ashGl.useProgram(vortex.program);
   ashGl.bindBuffer(ashGl.ARRAY_BUFFER, vortex.buffer);

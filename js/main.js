@@ -1,13 +1,15 @@
-import { cam, runtime } from "./state.js";
-import { TOUCH_SCALE, KEY_IMPULSE, WHEEL_SCALE } from "./data.js?v=mp4case";
-import { resizeView, spawnDust, tickDust, drawWorld } from "./dust.js?v=title90";
-import { resizeVortex, drawVortex } from "./vortex.js?v=glow15";
-import { resizePoints, drawPoints, loadPointModel } from "./pointmodel.js?v=draw15";
-import { bindTheme } from "./theme.js?v=glow15";
-import { buildHolos, layoutBeacons } from "./holo.js?v=imgprog";
-import { buildFields, spinWorks, dragWorks, startMedia } from "./fields.js?v=imgprog";
-import { applyProgress, setPhase, flick, drag, jumpTo, tickMotion, bindNav } from "./journey.js?v=imgprog";
-import { closePeek } from "./peek.js?v=imgprog";
+// 改 JS 后只把 index.html importmap 里的 ?v= 往上加一号。
+import { cam, runtime } from "state";
+import { KEY_IMPULSE, WHEEL_SCALE } from "path";
+import { resizeView, spawnDust, tickDust, drawWorld } from "dust";
+import { resizeVortex, drawVortex } from "vortex";
+import { resizePoints, drawPoints, loadPointModel, mountPointClouds } from "pointmodel";
+import { POINT_CLOUDS } from "pointclouds";
+import { bindTheme } from "theme";
+import { buildHolos, layoutBeacons } from "holo";
+import { buildFields, spinWorks, dragWorks, startMedia } from "fields";
+import { applyProgress, setPhase, flick, drag, jumpTo, tickMotion, bindNav } from "journey";
+import { closePeek } from "peek";
 
 const body = document.body;
 const pct = document.getElementById("pct");
@@ -19,6 +21,8 @@ function resize() {
   resizeVortex();
   resizePoints();
 }
+
+let bootStart = 0;
 
 async function boot() {
   runtime.boot = 0;
@@ -32,24 +36,20 @@ async function boot() {
       /* keep going */
     }
   }
-  spawnDust();
-  const start = performance.now();
-  const duration = 2200;
-  const step = (now) => {
-    const t = Math.min(1, (now - start) / duration);
-    const eased = 1 - (1 - t) ** 3;
-    runtime.boot = eased;
-    pct.textContent = `${Math.round(eased * 100)}%`;
-    if (t < 1) {
-      requestAnimationFrame(step);
-      return;
-    }
-    runtime.boot = 1;
-    runtime.ready = true;
-    setPhase("is-gate");
-    startMedia();
-  };
-  requestAnimationFrame(step);
+  bootStart = performance.now();
+}
+
+function tickBoot(now) {
+  if (runtime.ready || !bootStart) return;
+  const t = Math.min(1, (now - bootStart) / 2200);
+  const eased = 1 - (1 - t) ** 3;
+  runtime.boot = eased;
+  pct.textContent = `${Math.round(eased * 100)}%`;
+  if (t < 1) return;
+  runtime.boot = 1;
+  runtime.ready = true;
+  setPhase("is-gate");
+  startMedia();
 }
 
 function tickClock() {
@@ -57,14 +57,16 @@ function tickClock() {
 }
 
 function loop(now) {
+  const t = now || performance.now();
+  tickBoot(t);
   cam.lookX += (cam.mx - cam.lookX) * 0.05;
   cam.lookY += (cam.my - cam.lookY) * 0.05;
-  tickMotion(now);
-  tickDust(now || performance.now());
+  tickMotion(t);
+  tickDust(t);
   applyProgress(cam.progress);
   drawWorld();
-  drawPoints(now);
-  drawVortex(now);
+  drawPoints(t);
+  drawVortex(t);
   requestAnimationFrame(loop);
 }
 
@@ -77,6 +79,7 @@ function wheelInScrollableText(event) {
 
 resize();
 loadPointModel("OBJ/%E7%82%AE%E8%BD%A62.obj?v=2");
+mountPointClouds(POINT_CLOUDS);
 spawnDust();
 buildHolos();
 buildFields();
@@ -125,7 +128,9 @@ window.addEventListener(
     const line = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? innerHeight : 1;
     const dy = event.deltaY * line;
     if (spinWorks(dy)) return;
-    flick(-dy * WHEEL_SCALE);
+    const atGate = runtime.phase !== "is-station" || cam.progress < 0.35;
+    if (atGate) flick(Math.abs(dy) * WHEEL_SCALE);
+    else flick(dy * WHEEL_SCALE);
   },
   { passive: false },
 );
@@ -144,10 +149,13 @@ window.addEventListener(
     if (event.target.closest(".holo") || body.classList.contains("is-peek")) return;
     event.preventDefault();
     const y = event.touches[0].clientY;
+    // 手机竖滑：一屏高换成约 2.4 的路程（不到一站）；横向墙按屏宽/屏高跟上，方向仍用原来的 dy
     const dy = runtime.lastTouchY - y;
     runtime.lastTouchY = y;
-    if (dragWorks(dy)) return;
-    drag(dy * TOUCH_SCALE);
+    const span = Math.max(innerHeight, 1);
+    const across = Math.min(1, innerWidth / span);
+    if (dragWorks(dy * across)) return;
+    drag((-dy / span) * 2.4);
   },
   { passive: false },
 );
@@ -158,6 +166,6 @@ window.addEventListener("keydown", (event) => {
     return;
   }
   if (body.classList.contains("is-peek")) return;
-  if (event.key === "ArrowUp" || event.key === "PageUp" || event.key === "Enter") flick(KEY_IMPULSE);
-  if (event.key === "ArrowDown" || event.key === "PageDown") flick(-KEY_IMPULSE);
+  if (event.key === "ArrowDown" || event.key === "PageDown" || event.key === "Enter") flick(KEY_IMPULSE);
+  if (event.key === "ArrowUp" || event.key === "PageUp") flick(-KEY_IMPULSE);
 });
