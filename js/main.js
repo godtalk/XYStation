@@ -3,9 +3,9 @@ import { TOUCH_SCALE, KEY_IMPULSE, WHEEL_SCALE } from "./data.js?v=clips3";
 import { resizeView, spawnDust, tickDust, drawWorld } from "./dust.js?v=title90";
 import { resizeVortex, drawVortex } from "./vortex.js?v=glow15";
 import { bindTheme } from "./theme.js?v=glow15";
-import { buildHolos, layoutBeacons } from "./holo.js?v=clips3";
-import { buildFields, spinWorks, dragWorks } from "./fields.js?v=clips3";
-import { applyProgress, setPhase, flick, drag, jumpTo, tickMotion, bindNav } from "./journey.js?v=clips3";
+import { buildHolos, layoutBeacons } from "./holo.js?v=vfast";
+import { buildFields, spinWorks, dragWorks, startMedia } from "./fields.js?v=vfast";
+import { applyProgress, setPhase, flick, drag, jumpTo, tickMotion, bindNav } from "./journey.js?v=vfast";
 import { closePeek } from "./peek.js?v=flow6";
 
 const body = document.body;
@@ -45,6 +45,7 @@ async function boot() {
     runtime.boot = 1;
     runtime.ready = true;
     setPhase("is-gate");
+    startMedia();
   };
   requestAnimationFrame(step);
 }

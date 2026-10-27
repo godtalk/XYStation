@@ -6,6 +6,7 @@ import { openPeek } from "./peek.js?v=flow6";
 const station = document.getElementById("station");
 const fieldNodes = [];
 const primed = new Set();
+let videosOpen = false;
 
 function clipPool() {
   let pool = document.getElementById("clip-pool");
@@ -109,14 +110,13 @@ function buildFields() {
             el.appendChild(label);
           }
         } else {
-          el.innerHTML = `<img src="${mediaURL(poster)}" alt="${item.name || "作品"}" loading="lazy" decoding="async">${item.name ? `<span>${item.name}</span>` : ""}`;
+          el.innerHTML = `<img alt="${item.name || "作品"}" decoding="async">${item.name ? `<span>${item.name}</span>` : ""}`;
         }
       } else if (videoSrc) {
         const clip = document.createElement("video");
         clip.muted = true;
         clip.loop = true;
         clip.playsInline = true;
-        if (poster) clip.poster = mediaURL(poster);
         if (item.name) {
           const label = document.createElement("span");
           label.textContent = item.name;
@@ -126,7 +126,7 @@ function buildFields() {
         clip.dataset.src = src;
         el.insertBefore(clip, el.firstChild);
         el.addEventListener("pointerenter", () => {
-          if (!el.contains(clip)) return;
+          if (!videosOpen || !el.contains(clip)) return;
           if (clip.dataset.src && !clip.getAttribute("src")) {
             clip.src = clip.dataset.src;
             clip.load();
@@ -332,10 +332,7 @@ function revealWall(wall, visible) {
   wall.seen = start;
   wall.nodes.forEach((node, i) => {
     const c = i % wall.colsTotal;
-    if (c >= start && c < end) {
-      enqueueLoad(node, c < start + visible);
-      if (node.isVideo) showFrame(node.el.querySelector("video"));
-    }
+    if (c >= start && c < end) enqueueLoad(node, c < start + visible);
   });
 }
 
@@ -589,7 +586,6 @@ function placePage(page, cx, cy, cellW, cellH, gap, cols, fade, shiftX, lookX) {
     const x = ox + col * (cellW + gap) + cellW / 2;
     const y = oy + row * (cellH + gap + 22) + cellH / 2;
     paintCard(node, x, y, cellW, cellH, fade, scale, lookX * -6);
-    if (node.isVideo) showFrame(node.el.querySelector("video"));
   });
 }
 
@@ -802,6 +798,90 @@ function layoutSoftware(nodes, vis, now, navW, areaW, areaH) {
     node.el.style.filter = `brightness(${0.92 + (b.scale - 0.82) * 0.35})`;
     node.screen = { x: b.x, y: b.y, vis, depth: b.scale };
   });
+}
+
+export function startMedia() {
+  const images = [];
+  const seen = new Set();
+  const pushImage = (url, apply) => {
+    if (!url || seen.has(url)) return;
+    seen.add(url);
+    images.push({ url, apply });
+  };
+  const avatar = document.querySelector(".cv-avatar");
+  if (avatar?.dataset.src) {
+    pushImage(avatar.dataset.src, () => {
+      avatar.src = avatar.dataset.src;
+    });
+  }
+  fieldNodes.forEach((node) => {
+    if (node.isVideo) {
+      if (!node.thumb) return;
+      pushImage(node.thumb, () => {
+        const clip = node.el.querySelector("video");
+        if (clip && !clip.poster) clip.poster = node.thumb;
+      });
+      return;
+    }
+    const url = node.thumb || node.src;
+    pushImage(url, () => {
+      if (node.group !== "software") return;
+      const img = node.el.querySelector("img");
+      if (img && !img.getAttribute("src")) img.src = url;
+    });
+  });
+
+  let cursor = 0;
+  let busy = 0;
+  const pumpImages = () => {
+    if (cursor >= images.length && busy === 0) {
+      pumpVideos();
+      return;
+    }
+    while (busy < LOAD_N && cursor < images.length) {
+      const job = images[cursor];
+      cursor += 1;
+      busy += 1;
+      const img = new Image();
+      const done = () => {
+        job.apply?.();
+        busy -= 1;
+        pumpImages();
+      };
+      img.onload = done;
+      img.onerror = done;
+      img.src = job.url;
+    }
+  };
+
+  const videos = fieldNodes.filter((node) => node.isVideo);
+  let videoAt = 0;
+  let videoBusy = 0;
+  const pumpVideos = () => {
+    videosOpen = true;
+    if (videoAt >= videos.length && videoBusy === 0) return;
+    while (videoBusy < LOAD_N && videoAt < videos.length) {
+      const node = videos[videoAt];
+      videoAt += 1;
+      const clip = node.el.querySelector("video");
+      if (!clip) continue;
+      videoBusy += 1;
+      const done = () => {
+        clip.removeEventListener("loadeddata", done);
+        clip.removeEventListener("error", done);
+        videoBusy -= 1;
+        pumpVideos();
+      };
+      clip.preload = "metadata";
+      clip.addEventListener("loadeddata", done);
+      clip.addEventListener("error", done);
+      if (!clip.getAttribute("src") && clip.dataset.src) clip.src = clip.dataset.src;
+      else if (clip.readyState >= 2) done();
+      showFrame(clip);
+    }
+  };
+
+  pumpImages();
 }
 
 export { buildFields, layoutFields };

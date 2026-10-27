@@ -2,7 +2,7 @@ import { cam, runtime } from "./state.js";
 import { beaconWorld, cards, fields, holoVisibility } from "./data.js?v=clips3";
 import { project } from "./camera.js";
 import { clamp } from "./util.js";
-import { layoutFields } from "./fields.js?v=clips3";
+import { layoutFields } from "./fields.js?v=vfast";
 
 const beacons = [...document.querySelectorAll(".beacon")];
 const station = document.getElementById("station");
@@ -133,7 +133,7 @@ function buildHolos() {
     el.className = `holo${id === "resume" ? " holo-resume" : ""}`;
     el.dataset.id = id;
     if (id === "resume") {
-      el.innerHTML = `<div class="cv-orbit"><div class="cv-col cv-left"><p class="holo-code">${card.code}</p><h2>${card.title}</h2><p class="holo-meta">${card.meta}</p>${card.left}</div><img class="cv-avatar" src="images/TouXiang.png" alt="郑新义"><div class="cv-col cv-right">${card.right}</div></div>`;
+      el.innerHTML = `<div class="cv-orbit"><div class="cv-col cv-left"><p class="holo-code">${card.code}</p><h2>${card.title}</h2><p class="holo-meta">${card.meta}</p>${card.left}</div><img class="cv-avatar" data-src="images/TouXiang.png" alt="郑新义"><div class="cv-col cv-right">${card.right}</div></div>`;
     } else {
       const scroll = `<div class="float-scroll">${card.html}</div><div class="float-rail" aria-hidden="true"><span class="float-fill"></span><i class="float-thumb"></i></div>`;
       el.innerHTML = `<p class="holo-code">${card.code}</p><h2>${card.title}</h2><p class="holo-meta">${card.meta}</p><div class="float-wrap">${scroll}</div>`;
