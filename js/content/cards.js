@@ -47,6 +47,6 @@ export const cards = {
     code: "CONTACT",
     title: "联系方式",
     meta: "公开联系方式",
-    html: `<p>手机　<a href="tel:18612238615">18612238615</a></p><p>邮箱　<a href="mailto:zxy08165108@163.com">zxy08165108@163.com</a></p><p><a href="https://github.com/godtalk" target="_blank" rel="noopener">GitHub · godtalk</a></p>`,
+    html: `<p><span class="ct-k">手机</span><a href="tel:18612238615">18612238615</a></p><p><span class="ct-k">邮箱</span><a href="mailto:zxy08165108@163.com">zxy08165108@163.com</a></p><p><span class="ct-k">GIT</span><a href="https://github.com/godtalk" target="_blank" rel="noopener">godtalk</a></p>`,
   },
 };
