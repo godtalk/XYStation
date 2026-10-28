@@ -107,11 +107,22 @@ function buildFields() {
       const still = item.poster || item.img || "";
       const poster = still && !isVideoSrc(still) ? still : "";
       const src = mediaURL(videoSrc || poster || "");
-      const thumb = poster ? thumbURL(poster) : "";
+      const thumb = poster && group !== "software" ? thumbURL(poster) : "";
       if (src) el.classList.add("has-img");
       if (item.sheet) el.classList.add("is-sheet");
       if (videoSrc) el.classList.add("has-video");
-      if (poster && !videoSrc) {
+      if (group === "software" && poster) {
+        const img = document.createElement("img");
+        img.alt = item.name || "";
+        img.decoding = "async";
+        img.src = mediaURL(poster);
+        el.appendChild(img);
+        if (item.name) {
+          const label = document.createElement("span");
+          label.textContent = item.name;
+          el.appendChild(label);
+        }
+      } else if (poster && !videoSrc) {
         el.classList.add("is-pending");
         const img = document.createElement("img");
         img.alt = item.name || "作品";
@@ -399,31 +410,45 @@ function openStrip() {
   return walls[group];
 }
 
+let stripArm = 0;
+
+function stripArmed() {
+  if (!stripArm) return false;
+  if (performance.now() - stripArm < 640) return true;
+  stripArm = 0;
+  return false;
+}
+
+function wallEdge(wall, dir) {
+  if (!wall || !dir) return "";
+  const atStart = wall.px <= 0.8 && wall.vel >= -0.2 && dir < 0;
+  const atEnd = wall.px >= wall.maxPx - 0.8 && wall.vel <= 0.2 && dir > 0;
+  if (!atStart && !atEnd) return "";
+  wall.held = false;
+  wall.vel = 0;
+  stripArm = performance.now();
+  return dir > 0 ? "next" : "prev";
+}
+
 export function spinWorks(dy) {
+  if (stripArmed()) return true;
   const wall = openStrip();
   if (!dy || !wall) return false;
-  const atStart = wall.px <= 0.8 && wall.vel <= 0.2 && dy > 0;
-  const atEnd = wall.px >= wall.maxPx - 0.8 && wall.vel >= -0.2 && dy < 0;
-  if (atStart || atEnd) {
-    wall.held = false;
-    return false;
-  }
+  const edge = wallEdge(wall, dy);
+  if (edge) return edge;
   wall.held = true;
   wall.lastInput = performance.now();
-  wall.vel = clamp(wall.vel - dy * 0.55, -WALL_VEL_MAX, WALL_VEL_MAX);
+  wall.vel = clamp(wall.vel + dy * 0.45, -WALL_VEL_MAX, WALL_VEL_MAX);
   cam.vel = 0;
   return true;
 }
 
 export function dragWorks(px) {
+  if (stripArmed()) return true;
   const wall = openStrip();
   if (!px || !wall) return false;
-  const atStart = wall.px <= 0.8 && px < 0;
-  const atEnd = wall.px >= wall.maxPx - 0.8 && px > 0;
-  if (atStart || atEnd) {
-    wall.held = false;
-    return false;
-  }
+  const edge = wallEdge(wall, px);
+  if (edge) return edge;
   wall.held = true;
   wall.lastInput = performance.now();
   wall.px = clamp(wall.px + px, 0, wall.maxPx);
@@ -441,6 +466,13 @@ function layoutStrip(group, nodes, vis, navW, areaW, areaH) {
     return;
   }
   wall.nodes = nodes;
+  const open = vis >= 0.5;
+  if (open && !wall.open) {
+    wall.px = 0;
+    wall.vel = 0;
+    wall.held = false;
+  }
+  wall.open = open;
   const padL = navW + 36;
   const viewW = Math.max(280, innerWidth - padL - 40);
   const viewH = Math.max(220, areaH - 8);
@@ -845,7 +877,6 @@ export function startMedia() {
     }
     avatar.src = thumbURL("images/TouXiang.png") || avatar.dataset.src;
   }
-  (nodesByGroup.software || []).forEach((node) => enqueueLoad(node, true));
 }
 
 export { buildFields, layoutFields };

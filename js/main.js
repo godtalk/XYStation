@@ -8,7 +8,7 @@ import { POINT_CLOUDS } from "pointclouds";
 import { bindTheme } from "theme";
 import { buildHolos, layoutBeacons } from "holo";
 import { buildFields, spinWorks, dragWorks, startMedia } from "fields";
-import { applyProgress, setPhase, flick, drag, jumpTo, tickMotion, bindNav } from "journey";
+import { applyProgress, setPhase, flick, drag, jumpTo, leaveStrip, tickMotion, bindNav } from "journey";
 import { closePeek } from "peek";
 
 const body = document.body;
@@ -127,7 +127,10 @@ window.addEventListener(
     event.preventDefault();
     const line = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? innerHeight : 1;
     const dy = event.deltaY * line;
-    if (spinWorks(dy)) return;
+    const spun = spinWorks(dy);
+    if (spun === "next") leaveStrip(1);
+    else if (spun === "prev") leaveStrip(-1);
+    if (spun) return;
     const atGate = runtime.phase !== "is-station" || cam.progress < 0.35;
     if (atGate) flick(Math.abs(dy) * WHEEL_SCALE);
     else flick(dy * WHEEL_SCALE);
@@ -154,7 +157,10 @@ window.addEventListener(
     runtime.lastTouchY = y;
     const span = Math.max(innerHeight, 1);
     const across = Math.min(1, innerWidth / span);
-    if (dragWorks(dy * across)) return;
+    const dragged = dragWorks(dy * across);
+    if (dragged === "next") leaveStrip(1);
+    else if (dragged === "prev") leaveStrip(-1);
+    if (dragged) return;
     drag((-dy / span) * 2.4);
   },
   { passive: false },

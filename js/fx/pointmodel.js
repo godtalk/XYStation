@@ -40,6 +40,7 @@ uniform float uAspect;
 uniform float uScatter;
 uniform float uFit;
 uniform vec2 uShift;
+uniform vec2 uDrift;
 void main() {
   float c = cos(uYaw);
   float s = sin(uYaw);
@@ -51,9 +52,18 @@ void main() {
   float ang2 = fract(aSeed * 13.37) * 6.28318;
   float reach = 0.12 + fract(aSeed * 7.91) * 0.55;
   vec2 fly = vec2(cos(ang), sin(ang2)) * reach * uScatter;
-  float fit = max(uFit, 0.2);
+  float driftLen = length(uDrift);
+  float spread = uScatter;
+  if (driftLen > 0.001) {
+    vec2 dir = uDrift / driftLen;
+    float along = 0.72 + fract(aSeed * 9.17) * 0.7;
+    float side = (fract(aSeed * 3.17) - 0.5) * 0.34;
+    fly = (dir * along + vec2(-dir.y, dir.x) * side) * driftLen;
+    spread = min(driftLen, 1.0);
+  }
+  float fit = max(uFit, 0.08);
   gl_Position = vec4(p.x * 0.29 * fit / uAspect + uLook.x + fly.x + uShift.x, p.y * 0.29 * fit + 0.4 + uLook.y + fly.y + uShift.y, 0.0, 1.0);
-  gl_PointSize = uSize * mix(1.0, 0.62, uScatter);
+  gl_PointSize = uSize * clamp(max(fit, 0.42), 0.42, 2.1) * mix(1.0, 0.62, spread);
 }
 `;
 
@@ -135,6 +145,7 @@ function init() {
   cloud.alpha = gl.getUniformLocation(program, "uAlpha");
   cloud.fit = gl.getUniformLocation(program, "uFit");
   cloud.shift = gl.getUniformLocation(program, "uShift");
+  cloud.drift = gl.getUniformLocation(program, "uDrift");
   gl.enable(gl.BLEND);
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
   const dvs = compile(gl.VERTEX_SHADER, DEPTH_VERT);
@@ -366,15 +377,34 @@ export function mountPointClouds(list) {
   (list || []).forEach((item) => riders.push(item));
 }
 
-function windowVis(at, until) {
-  const t = cam.progress;
-  if (t < at || t > until) return 0;
-  const span = Math.max(0.001, until - at);
-  const edge = Math.min(0.28, span * 0.32);
-  const into = Math.min(t - at, until - t);
-  if (into >= edge) return 1;
-  const u = into / edge;
+function smoothstep(a, b, x) {
+  const u = clamp((x - a) / Math.max(0.001, b - a), 0, 1);
   return u * u * (3 - 2 * u);
+}
+
+function riderPose(item) {
+  const span = item.to - item.from;
+  if (!(span > 0)) return null;
+  const u = (cam.progress - item.from) / span;
+  if (u <= 0.06 || u >= 0.995) return null;
+  const into = smoothstep(0.08, 0.2, u);
+  const gathered = smoothstep(0.08, 0.4, u);
+  const gatherHold = gathered * gathered * (3 - 2 * gathered);
+  const broke = smoothstep(0.58, 0.94, u);
+  const burst = broke * broke * (3 - 2 * broke);
+  const travel = smoothstep(0.12, 0.9, u);
+  const fade = 1 - smoothstep(0.8, 0.99, u);
+  const scatter = Math.max(1 - gatherHold, burst);
+  return {
+    fit: 0.16 + travel * 7.52,
+    scatter,
+    alpha: 0.7 * into * fade * (1 - scatter * 0.55),
+    yaw: item.yaw || 0,
+    shiftX: -0.82 + travel * 1.58,
+    shiftY: 0.42 - travel * 1.42,
+    driftX: 0,
+    driftY: 0,
+  };
 }
 
 export function loadPointModel(url) {
@@ -397,6 +427,7 @@ export function loadPointModel(url) {
       if (!cloud.thin) cloud.thin = gl.createBuffer();
       gl.bindBuffer(gl.ARRAY_BUFFER, cloud.thin);
       gl.bufferData(gl.ARRAY_BUFFER, thin, gl.STATIC_DRAW);
+      modelReadyAt = performance.now();
       if (cloud.shell && built.mesh.length) {
         cloud.shellCount = built.mesh.length / 3;
         gl.bindBuffer(gl.ARRAY_BUFFER, cloud.shell);
@@ -426,7 +457,7 @@ function bindCloud(buffer) {
   gl.vertexAttribPointer(cloud.aSeed, 1, gl.FLOAT, false, 16, 12);
 }
 
-function drawBatch(buffer, count, yaw, scatter, alpha, fit, shiftX, shiftY, now) {
+function drawBatch(buffer, count, yaw, scatter, alpha, fit, shiftX, shiftY, now, driftX = 0, driftY = 0) {
   if (!buffer || !count || alpha < 0.02) return;
   bindCloud(buffer);
   gl.uniform1f(cloud.yaw, yaw);
@@ -435,19 +466,33 @@ function drawBatch(buffer, count, yaw, scatter, alpha, fit, shiftX, shiftY, now)
   gl.uniform1f(cloud.alpha, alpha);
   gl.uniform1f(cloud.fit, fit);
   gl.uniform2f(cloud.shift, shiftX, shiftY);
+  gl.uniform2f(cloud.drift, driftX, driftY);
   gl.drawArrays(gl.POINTS, 0, count);
+}
+
+let modelReadyAt = 0;
+
+function tankHold(now) {
+  const bootForm = runtime.ready
+    ? 1 - clamp((cam.progress - 0.06) / 2.05, 0, 1)
+    : clamp(runtime.boot, 0, 1);
+  const bootHold = bootForm * bootForm * (3 - 2 * bootForm);
+  if (!modelReadyAt) return 0;
+  const arrived = clamp(((now || 0) - modelReadyAt) / 1400, 0, 1);
+  const arriveHold = arrived * arrived * (3 - 2 * arrived);
+  return Math.min(bootHold, arriveHold);
 }
 
 export function drawPoints(now) {
   if (!gl || !cloud.program || !cloud.count) return;
-  const form = runtime.ready ? 1 - clamp((cam.progress - 0.06) / 2.05, 0, 1) : 1;
-  const hold = form * form * (3 - 2 * form);
+  const hold = tankHold(now);
   const scatter = 1 - hold;
   const fade = clamp((cam.progress - 1.6) / 2.4, 0, 1);
   const vis = 1 - fade * fade * (3 - 2 * fade);
   let riderOn = false;
   for (let i = 0; i < riders.length; i += 1) {
-    if (windowVis(riders[i].at, riders[i].until) > 0.02) riderOn = true;
+    const pose = riderPose(riders[i]);
+    if (pose && pose.alpha > 0.02) riderOn = true;
   }
   if (vis < 0.02 && !riderOn) {
     if (!pointsAsleep) {
@@ -493,20 +538,20 @@ export function drawPoints(now) {
   const thin = cloud.thin || cloud.buffer;
   const thinCount = cloud.thinCount || Math.round(cloud.count * 0.62);
   for (let i = 0; i < riders.length; i += 1) {
-    const item = riders[i];
-    const v = windowVis(item.at, item.until);
-    if (v < 0.02) continue;
-    const shift = item.shift || [0, 0];
+    const pose = riderPose(riders[i]);
+    if (!pose || pose.alpha < 0.02) continue;
     drawBatch(
       thin,
       thinCount,
-      (item.yaw || 0) + (now || 0) / 1000 * 0.12,
-      0,
-      0.5 * v,
-      item.fit || 0.68,
-      shift[0],
-      shift[1],
+      pose.yaw + (now || 0) / 1000 * 0.08,
+      pose.scatter,
+      pose.alpha,
+      pose.fit,
+      pose.shiftX,
+      pose.shiftY,
       now,
+      pose.driftX,
+      pose.driftY,
     );
   }
 }

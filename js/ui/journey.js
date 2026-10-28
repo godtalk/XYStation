@@ -88,21 +88,19 @@ function busy() {
 }
 
 function snapTarget(t) {
-  for (const stop of NAV_STOPS) {
-    const { start, end } = stopWindow(stop);
-    if (t >= start - 0.06 && t <= end + 0.06) return null;
+  for (let i = 0; i < NAV_STOPS.length; i += 1) {
+    const { start, end } = stopWindow(NAV_STOPS[i]);
+    if (t >= start - 0.04 && t <= end + 0.04) return null;
+    const next = NAV_STOPS[i + 1];
+    if (!next) break;
+    const nextStart = stopWindow(next).start;
+    if (t <= end || t >= nextStart) continue;
+    const reach = (nextStart - end) * 0.25;
+    if (t - end <= reach) return end;
+    if (nextStart - t <= reach) return nextStart;
+    return null;
   }
-  let best = null;
-  let bestD = Infinity;
-  for (const stop of NAV_STOPS) {
-    const d = Math.abs(t - stop.at);
-    if (d < bestD) {
-      bestD = d;
-      best = stop.at;
-    }
-  }
-  if (best == null || bestD < 0.02) return null;
-  return best;
+  return null;
 }
 
 export function jumpTo(key) {
@@ -111,6 +109,17 @@ export function jumpTo(key) {
   lastInput = performance.now();
   cam.vel = 0;
   setRide(stop.at);
+}
+
+export function leaveStrip(dir) {
+  if (busy()) return;
+  const cur = stopAt(cam.progress);
+  const index = NAV_STOPS.findIndex((item) => item.key === cur.key);
+  const next = NAV_STOPS[index + (dir < 0 ? -1 : 1)];
+  if (!next) return;
+  lastInput = performance.now();
+  cam.vel = 0;
+  setRide(next.at);
 }
 
 export function flick(impulse) {

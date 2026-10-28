@@ -1,7 +1,7 @@
 import { clamp } from "util";
 
 export const PATH_MAX = 24;
-export const WHEEL_SCALE = 0.00008;
+export const WHEEL_SCALE = 0.00005;
 export const TOUCH_SCALE = 0.05;
 export const KEY_IMPULSE = 0.28;
 export const VEL_MAX = 0.38;

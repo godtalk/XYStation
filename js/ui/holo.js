@@ -63,13 +63,14 @@ function layoutHolos() {
     el.style.visibility = "visible";
     const slam = slamOf(vis);
     const resumeWide = innerWidth >= 1100 && innerWidth > innerHeight;
-    if (id === "resume" && resumeWide) {
+    const centered = id === "resume" || id === "contact";
+    if (centered && resumeWide) {
       const navW = 210;
       el.style.left = `${navW + (innerWidth - navW) / 2}px`;
       el.style.top = "50%";
       el.style.bottom = "auto";
       el.style.transform = `translate(-50%, calc(-50% + ${slam.lift}px)) scale(${slam.scale}) rotateY(${slam.yaw}deg)`;
-    } else if (id === "resume") {
+    } else if (centered) {
       el.style.left = "50%";
       el.style.top = "48%";
       el.style.bottom = "auto";
@@ -135,7 +136,7 @@ function buildHolos() {
   Object.entries(cards).forEach(([id, card]) => {
     if (fields[id] || !(card.html || card.left)) return;
     const el = document.createElement("article");
-    el.className = `holo${id === "resume" ? " holo-resume" : ""}`;
+    el.className = `holo${id === "resume" ? " holo-resume" : ""}${id === "contact" ? " holo-contact" : ""}`;
     el.dataset.id = id;
     if (id === "resume") {
       el.innerHTML = `<div class="cv-orbit"><div class="cv-col cv-left"><p class="holo-code">${card.code}</p><h2>${card.title}</h2><p class="holo-meta">${card.meta}</p>${card.left}</div><img class="cv-avatar" data-src="images/TouXiang.png" alt="郑新义"><div class="cv-col cv-right">${card.right}</div></div>`;

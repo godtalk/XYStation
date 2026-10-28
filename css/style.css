@@ -718,8 +718,9 @@ html[data-theme="dark"] .theme-switch .theme-dark {
   width: var(--soft, 178px);
   height: var(--soft, 178px);
   object-fit: contain;
-  background: transparent;
+  background: none;
   border: 0;
+  box-shadow: none;
   -webkit-mask-image: none;
   mask-image: none;
   transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.28s ease, box-shadow 0.28s ease;
@@ -940,6 +941,51 @@ html[data-theme="dark"] .dot-soft.has-img:focus-visible img {
   height: 0;
 }
 
+.holo-contact {
+  width: max-content;
+  max-width: min(520px, calc(100vw - 240px));
+  max-height: none;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  backdrop-filter: none;
+  overflow: visible;
+  text-align: center;
+}
+
+.holo-contact .holo-meta {
+  display: none;
+}
+
+.holo-contact h2 {
+  font-family: "Noto Sans SC", system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-weight: 700;
+  font-size: 32px;
+  letter-spacing: 0.06em;
+  margin: 2px 0 22px;
+}
+
+.holo-contact .float-wrap {
+  display: block;
+}
+
+.holo-contact .float-rail {
+  display: none;
+}
+
+.holo-contact .float-scroll {
+  flex: none;
+  width: max-content;
+  max-height: none;
+  margin-inline: auto;
+  overflow: visible;
+  text-align: left;
+}
+
+.holo-contact .float-scroll p + p {
+  margin-top: 8px;
+}
+
 .holo h2 {
   font-family: Syne, system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
   font-size: 28px;
@@ -1067,37 +1113,8 @@ html[data-theme="dark"] .dot-soft.has-img:focus-visible img {
   color: var(--ink);
 }
 
-.cv-timeline {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.cv-section {
-  margin: 6px 0 0;
-  font-family: "Chivo Mono", ui-monospace, monospace;
-  font-size: 12px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--accent);
-}
-
-.cv-duty:empty {
-  display: none;
-}
-
-.cv-duty:not(:empty) {
-  display: block;
-  margin-top: 4px;
-  min-height: 1.35em;
-  font-size: 13px;
-  line-height: 1.5;
-  font-weight: 400;
-  color: var(--muted);
-}
-
 .cv-job {
-  margin: 0;
+  margin: 0 0 12px;
 }
 
 .cv-job .cv-time {
@@ -1190,24 +1207,16 @@ html[data-theme="dark"] .dot-soft.has-img:focus-visible img {
 }
 
 .cv-job.s5 {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.5;
+  margin: 0 0 6px;
+  font-size: clamp(11px, 0.7vw, 12px);
+  line-height: 1.4;
   color: var(--muted);
 }
 
 .cv-job.s5 .cv-time {
-  display: block;
-  font-size: 13px;
-  margin: 0 0 2px;
-}
-
-.cv-job.s5 strong,
-.cv-job.s5 b {
-  display: block;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--ink);
+  display: inline;
+  font-size: clamp(10px, 0.6vw, 10px);
+  margin: 0 8px 0 0;
 }
 
 .float-wrap {
@@ -1519,6 +1528,12 @@ body.is-station .dot {
   .holo {
     width: calc(100vw - 24px);
     max-height: 42vh;
+  }
+
+  .holo-contact {
+    width: max-content;
+    max-width: calc(100vw - 28px);
+    max-height: none;
   }
 
   .rail-kicker,
