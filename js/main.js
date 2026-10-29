@@ -157,7 +157,7 @@ window.addEventListener(
     runtime.lastTouchY = y;
     const span = Math.max(innerHeight, 1);
     const across = Math.min(1, innerWidth / span);
-    const dragged = dragWorks(dy * across);
+    const dragged = dragWorks(innerHeight > innerWidth ? dy : dy * across);
     if (dragged === "next") leaveStrip(1);
     else if (dragged === "prev") leaveStrip(-1);
     if (dragged) return;

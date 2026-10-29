@@ -176,6 +176,9 @@ function buildFields() {
         queued: false,
       };
       if (src && group !== "software") {
+        el.dataset.peekSrc = src;
+        el.dataset.peekVideo = videoSrc ? "1" : "0";
+        el.dataset.peekName = item.name || "";
         el.addEventListener("click", () => openPeek(src, item.name, el, Boolean(videoSrc)));
       }
       fieldNodes.push(node);
@@ -243,6 +246,10 @@ function makeWall() {
     maxPx: 0,
     step: 1,
     colsTotal: 1,
+    axis: "x",
+    lines: 1,
+    across: 1,
+    span: 1,
     held: false,
     lastTick: 0,
     lastInput: 0,
@@ -366,13 +373,14 @@ function attachVideo(node) {
 }
 
 function revealWall(wall, visible) {
-  const col = wall.px / Math.max(1, wall.step);
-  const start = Math.max(0, Math.floor(col) - 1);
-  const end = Math.min(wall.colsTotal, Math.ceil(col + visible + 1));
+  const line = wall.px / Math.max(1, wall.step);
+  const start = Math.max(0, Math.floor(line) - 1);
+  const end = Math.min(wall.lines, Math.ceil(line + visible + 1));
   if (wall.seen === start && loadBusy) return;
   wall.seen = start;
+  const across = Math.max(1, wall.across);
   wall.nodes.forEach((node, i) => {
-    const c = i % wall.colsTotal;
+    const c = wall.axis === "y" ? Math.floor(i / across) : i % wall.lines;
     if (c < start || c >= end) return;
     if (node.isVideo) attachVideo(node);
     else enqueueLoad(node, c < start + visible);
@@ -473,29 +481,85 @@ function layoutStrip(group, nodes, vis, navW, areaW, areaH) {
     wall.held = false;
   }
   wall.open = open;
-  const padL = navW + 36;
-  const viewW = Math.max(280, innerWidth - padL - 40);
-  const viewH = Math.max(220, areaH - 8);
-  const gap = Math.max(6, Math.min(12, Math.round(viewW * 0.007)));
-  let cellW = (viewW - gap * (spec.visible - 1)) / spec.visible;
-  let cellH = cellW / spec.aspect;
-  const maxH = (viewH - 28 - gap * (spec.rows - 1)) / spec.rows;
-  if (cellH > maxH) {
-    cellH = maxH;
-    cellW = cellH * spec.aspect;
+  const upright = innerHeight > innerWidth;
+  const axis = upright ? "y" : "x";
+  if (wall.axis !== axis) {
+    wall.axis = axis;
+    wall.px = 0;
+    wall.vel = 0;
+    wall.held = false;
+    wall.tx = null;
+    wall.layoutKey = "";
+    wall.seen = -1;
   }
-  cellW = Math.max(44, cellW);
-  cellH = cellW / spec.aspect;
-  const colsTotal = Math.max(spec.visible, Math.ceil(nodes.length / spec.rows));
-  const stepX = cellW + gap;
-  const stepY = cellH + gap;
-  wall.step = stepX;
-  wall.colsTotal = colsTotal;
-  wall.maxPx = Math.max(0, (colsTotal - spec.visible) * stepX);
-  const boxW = Math.round(spec.visible * cellW + (spec.visible - 1) * gap);
-  const boxH = Math.round(spec.rows * cellH + (spec.rows - 1) * gap);
-  const cx = padL + viewW / 2;
-  const cy = innerHeight * 0.52;
+  const railBottom = innerWidth < 720;
+  let padL;
+  let viewW;
+  let viewH;
+  let gap;
+  let cellW;
+  let cellH;
+  let cols;
+  let rows;
+  let span;
+  let stepX;
+  let stepY;
+  if (!upright) {
+    padL = navW + 36;
+    viewW = Math.max(280, innerWidth - padL - 40);
+    viewH = Math.max(220, areaH - 8);
+    gap = Math.max(6, Math.min(12, Math.round(viewW * 0.007)));
+    cellW = (viewW - gap * (spec.visible - 1)) / spec.visible;
+    cellH = cellW / spec.aspect;
+    const maxH = (viewH - 28 - gap * (spec.rows - 1)) / spec.rows;
+    if (cellH > maxH) {
+      cellH = maxH;
+      cellW = cellH * spec.aspect;
+    }
+    cellW = Math.max(44, cellW);
+    cellH = cellW / spec.aspect;
+    cols = Math.max(spec.visible, Math.ceil(nodes.length / spec.rows));
+    rows = spec.rows;
+    span = spec.visible;
+    stepX = cellW + gap;
+    stepY = cellH + gap;
+    wall.step = stepX;
+    wall.maxPx = Math.max(0, (cols - span) * stepX);
+  } else {
+    padL = railBottom ? 14 : navW + 28;
+    const padR = railBottom ? 14 : 36;
+    const padT = 64;
+    const padB = railBottom ? 86 : 36;
+    viewW = Math.max(160, innerWidth - padL - padR);
+    viewH = Math.max(180, innerHeight - padT - padB);
+    gap = Math.max(8, Math.min(14, Math.round(Math.min(viewW, viewH) * 0.018)));
+    const wide = spec.aspect > 1.2;
+    const target = wide ? Math.min(viewW, 520) : 168;
+    const fit = Math.floor((viewW + gap) / (target + gap));
+    cols = wide ? Math.max(1, Math.min(2, fit)) : Math.max(2, Math.min(3, fit));
+    cellW = (viewW - gap * (cols - 1)) / cols;
+    cellH = cellW / spec.aspect;
+    if (cellH > viewH * 0.78) {
+      cellH = viewH * 0.78;
+      cellW = Math.min(cellW, cellH * spec.aspect);
+    }
+    rows = Math.max(1, Math.ceil(nodes.length / cols));
+    stepX = cellW + gap;
+    stepY = cellH + gap;
+    span = Math.max(1, Math.min(rows, Math.floor((viewH + gap) / stepY)));
+    wall.step = stepY;
+    wall.maxPx = Math.max(0, (rows - span) * stepY);
+  }
+  wall.colsTotal = cols;
+  wall.lines = upright ? rows : cols;
+  wall.across = upright ? cols : rows;
+  wall.span = span;
+  const shown = upright ? Math.min(rows, span) : rows;
+  const shownCols = upright ? cols : span;
+  const boxW = Math.round(shownCols * cellW + (shownCols - 1) * gap);
+  const boxH = Math.round(shown * cellH + (shown - 1) * gap);
+  const cx = padL + (upright && railBottom ? (innerWidth - padL - 14) / 2 : viewW / 2);
+  const cy = upright ? (railBottom ? 64 : 36) + viewH / 2 : innerHeight * 0.52;
   const boxKey = `${Math.round(cx)}:${Math.round(cy)}:${boxW}:${boxH}`;
   if (wall.boxKey !== boxKey) {
     wall.boxKey = boxKey;
@@ -542,13 +606,13 @@ function layoutStrip(group, nodes, vis, navW, areaW, areaH) {
 
   const cellWpx = `${Math.round(cellW)}px`;
   const cellHpx = `${Math.round(cellH)}px`;
-  const layoutKey = `${cellWpx}:${cellHpx}:${nodes.length}`;
+  const layoutKey = `${wall.axis}:${cols}:${cellWpx}:${cellHpx}:${nodes.length}`;
   if (wall.layoutKey !== layoutKey) {
     wall.layoutKey = layoutKey;
     wall.seen = -1;
     nodes.forEach((node, i) => {
-      const row = Math.floor(i / colsTotal);
-      const col = i % colsTotal;
+      const row = Math.floor(i / cols);
+      const col = i % cols;
       node.el.classList.remove("is-flow", "is-center");
       node.el.classList.add("is-wall");
       node.el.style.setProperty("--plate", cellWpx);
@@ -563,17 +627,17 @@ function layoutStrip(group, nodes, vis, navW, areaW, areaH) {
       node.el.style.zIndex = "8";
       if (node.el.parentElement !== strip) strip.appendChild(node.el);
     });
-    strip.style.width = `${Math.round(colsTotal * cellW + (colsTotal - 1) * gap)}px`;
-    strip.style.height = `${boxH}px`;
+    strip.style.width = `${Math.round(cols * cellW + (cols - 1) * gap)}px`;
+    strip.style.height = `${Math.round(rows * cellH + (rows - 1) * gap)}px`;
   }
 
-  const tx = -wall.px;
-  if (wall.tx !== tx) {
-    wall.tx = tx;
-    strip.style.transform = `translate3d(${tx}px,0,0)`;
-    revealWall(wall, spec.visible);
+  const shift = wall.axis === "y" ? `0,${-wall.px}px` : `${-wall.px}px,0`;
+  if (wall.tx !== shift) {
+    wall.tx = shift;
+    strip.style.transform = `translate3d(${shift},0)`;
+    revealWall(wall, wall.span);
   } else if (wall.seen < 0) {
-    revealWall(wall, spec.visible);
+    revealWall(wall, wall.span);
   }
 }
 

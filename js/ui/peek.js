@@ -205,77 +205,162 @@ function playWhenReady(clip, seq) {
   );
 }
 
-export function openPeek(src, caption, originEl, isVideo = false) {
-  if (body.classList.contains("is-peek")) return;
-  const from = originRect(originEl);
-  if (!from) return;
-  const { peek, frame, img, video, cap } = peekEls();
-  const seq = ++peekSeq;
-  peekBusy = true;
-  peekFrom = originEl;
+let peekList = [];
+let peekIndex = -1;
+let peekClosing = false;
+let lastWheel = 0;
+
+function neighbors(originEl) {
+  const strip = originEl?.closest(".works-strip");
+  const list = strip
+    ? [...strip.querySelectorAll(".dot-work")].filter((el) => el.dataset.peekSrc)
+    : [];
+  return list.length ? list : [originEl];
+}
+
+function syncArrows() {
+  const prev = document.querySelector(".peek-prev");
+  const next = document.querySelector(".peek-next");
+  if (!prev || !next) return;
+  const live = body.classList.contains("is-peek") && !peekClosing && peekList.length > 1;
+  prev.hidden = !live || peekIndex <= 0;
+  next.hidden = !live || peekIndex < 0 || peekIndex >= peekList.length - 1;
+}
+
+function markOrigin(originEl) {
   document.querySelectorAll(".dot-work.is-zooming").forEach((el) => el.classList.remove("is-zooming"));
   originEl.classList.add("is-zooming");
+  peekFrom = originEl;
+}
+
+function mountMedia(src, caption, originEl, isVideo, seq, flyFrom) {
+  const { frame, img, video, cap } = peekEls();
   cap.textContent = caption || "";
-  cap.style.opacity = "0";
+  cap.style.opacity = flyFrom ? "0" : "1";
   frame.classList.toggle("has-video", isVideo);
   img.hidden = isVideo;
   video.hidden = true;
   if (isVideo) {
     img.src = "";
-    const clip = originEl.querySelector("video") || video;
+    let clip = originEl.querySelector("video") || video;
+    if (clip.dataset.src && !clip.getAttribute("src")) {
+      clip.preload = "auto";
+      clip.src = clip.dataset.src;
+    }
     if (clip === video) {
       video.hidden = false;
       video.preload = "auto";
       video.src = src;
       video.load();
     } else {
-      holdPlate(originEl, from);
+      const from = originRect(originEl);
+      if (from) holdPlate(originEl, from);
       borrowed = clip;
       frame.insertBefore(clip, cap);
     }
     bindPeekClip(clip);
-    body.classList.add("is-peek");
-    peek.hidden = false;
-    peek.classList.add("is-open", "is-on");
-    placePeekFrame(frame, from, false);
     const fit = () => {
       if (seq !== peekSeq) return;
-      placePeekFrame(frame, peekTarget(clip), false);
+      placePeekFrame(frame, peekTarget(clip), !flyFrom);
     };
+    if (flyFrom) placePeekFrame(frame, flyFrom, false);
     if (clip.videoWidth) fit();
     else clip.addEventListener("loadedmetadata", fit, { once: true });
     requestAnimationFrame(fit);
     playWhenReady(clip, seq);
-    cap.style.opacity = "1";
     peekBusy = false;
     return;
   }
   video.pause();
   video.removeAttribute("src");
+  video.load();
   img.alt = caption || "作品";
+  if (flyFrom) placePeekFrame(frame, flyFrom, false);
   img.src = src;
-  const media = img;
   const run = () => {
     if (seq !== peekSeq) return;
-    body.classList.add("is-peek");
-    peek.hidden = false;
-    peek.classList.add("is-open", "is-on");
-    placePeekFrame(frame, from, false);
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        if (seq !== peekSeq) return;
-        placePeekFrame(frame, peekTarget(img), true);
-        window.setTimeout(() => {
-          if (seq !== peekSeq) return;
-          cap.style.opacity = "1";
-          peekBusy = false;
-        }, 480);
-      });
-    });
+    const fit = () => {
+      if (seq !== peekSeq) return;
+      placePeekFrame(frame, peekTarget(img), true);
+      cap.style.opacity = "1";
+      peekBusy = false;
+    };
+    if (flyFrom) {
+      placePeekFrame(frame, flyFrom, false);
+      requestAnimationFrame(() => requestAnimationFrame(fit));
+      return;
+    }
+    fit();
   };
-  if (mediaReady(media, false)) run();
-  else media.addEventListener("load", run, { once: true });
+  if (mediaReady(img, false)) run();
+  else img.addEventListener("load", run, { once: true });
 }
+
+export function openPeek(src, caption, originEl, isVideo = false) {
+  if (body.classList.contains("is-peek")) return;
+  const from = originRect(originEl);
+  if (!from) return;
+  const { peek } = peekEls();
+  const seq = ++peekSeq;
+  peekBusy = true;
+  peekClosing = false;
+  peekList = neighbors(originEl);
+  peekIndex = Math.max(0, peekList.indexOf(originEl));
+  markOrigin(originEl);
+  body.classList.add("is-peek");
+  peek.hidden = false;
+  peek.classList.add("is-open", "is-on");
+  syncArrows();
+  mountMedia(src, caption, originEl, isVideo, seq, from);
+}
+
+export function stepPeek(dir) {
+  if (!body.classList.contains("is-peek") || peekClosing) return false;
+  const next = peekIndex + (dir < 0 ? -1 : 1);
+  if (next < 0 || next >= peekList.length) return false;
+  const originEl = peekList[next];
+  const seq = ++peekSeq;
+  peekIndex = next;
+  peekBusy = true;
+  restoreClip();
+  markOrigin(originEl);
+  syncArrows();
+  mountMedia(
+    originEl.dataset.peekSrc,
+    originEl.dataset.peekName || "",
+    originEl,
+    originEl.dataset.peekVideo === "1",
+    seq,
+    null,
+  );
+  return true;
+}
+
+document.querySelector(".peek-prev")?.addEventListener("click", (event) => {
+  event.stopPropagation();
+  stepPeek(-1);
+});
+document.querySelector(".peek-next")?.addEventListener("click", (event) => {
+  event.stopPropagation();
+  stepPeek(1);
+});
+
+window.addEventListener(
+  "wheel",
+  (event) => {
+    if (!body.classList.contains("is-peek") || peekClosing) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    const line = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? innerHeight : 1;
+    const dy = event.deltaY * line;
+    if (Math.abs(dy) < 12) return;
+    const now = performance.now();
+    if (now - lastWheel < 240) return;
+    if (!stepPeek(dy > 0 ? 1 : -1)) return;
+    lastWheel = now;
+  },
+  { passive: false },
+);
 
 export function closePeek() {
   if (!body.classList.contains("is-peek")) return;
@@ -283,6 +368,8 @@ export function closePeek() {
   const seq = ++peekSeq;
   const back = originRect(peekFrom);
   peekBusy = true;
+  peekClosing = true;
+  syncArrows();
   cap.style.opacity = "0";
   peek.classList.remove("is-on");
   setWait("");
@@ -296,7 +383,11 @@ export function closePeek() {
     document.querySelectorAll(".dot-work.is-zooming").forEach((el) => el.classList.remove("is-zooming"));
     restoreClip();
     peekFrom = null;
+    peekList = [];
+    peekIndex = -1;
     peekBusy = false;
+    peekClosing = false;
+    syncArrows();
     resetPeekFrame(frame, img, video);
   };
   if (back) {

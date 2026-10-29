@@ -20,7 +20,7 @@
       rel="stylesheet"
     />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="css/style.css?v=perf10" />
+    <link rel="stylesheet" href="css/style.css?v=perf11" />
     <script type="importmap">
       {
         "imports": {
@@ -37,10 +37,10 @@
           "pointmodel": "./js/fx/pointmodel.js?v=perf12",
           "theme": "./js/ui/theme.js?v=perf1",
           "holo": "./js/ui/holo.js?v=perf2",
-          "fields": "./js/ui/fields.js?v=perf5",
-          "peek": "./js/ui/peek.js?v=perf1",
+          "fields": "./js/ui/fields.js?v=perf7",
+          "peek": "./js/ui/peek.js?v=perf2",
           "journey": "./js/ui/journey.js?v=perf3",
-          "main": "./js/main.js?v=perf5"
+          "main": "./js/main.js?v=perf7"
         }
       }
     </script>
@@ -151,6 +151,8 @@
 
     <div id="peek" class="peek" hidden>
       <button class="peek-mask" type="button" aria-label="关闭作品"></button>
+      <button class="peek-arrow peek-prev" type="button" aria-label="上一张" hidden></button>
+      <button class="peek-arrow peek-next" type="button" aria-label="下一张" hidden></button>
       <figure class="peek-frame">
         <img id="peek-img" alt="" />
         <video id="peek-video" playsinline controls preload="auto"></video>

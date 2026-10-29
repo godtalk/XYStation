@@ -791,6 +791,56 @@ html[data-theme="dark"] .dot-soft.has-img:focus-visible img {
   opacity: 1;
 }
 
+.peek-arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 4;
+  width: 52px;
+  height: 96px;
+  margin: 0;
+  padding: 0;
+  transform: translateY(-50%);
+  border: 0;
+  background: transparent;
+  color: #f4efe4;
+  cursor: pointer;
+}
+
+.peek-arrow[hidden] {
+  display: none !important;
+}
+
+.peek-arrow::before {
+  content: "";
+  display: block;
+  width: 16px;
+  height: 16px;
+  margin: 0 auto;
+  border-top: 2px solid currentColor;
+  border-right: 2px solid currentColor;
+}
+
+.peek-prev {
+  left: 22px;
+}
+
+.peek-prev::before {
+  transform: rotate(-135deg);
+}
+
+.peek-next {
+  right: 22px;
+}
+
+.peek-next::before {
+  transform: rotate(45deg);
+}
+
+.peek-arrow:hover,
+.peek-arrow:focus-visible {
+  color: var(--accent);
+}
+
 .peek-frame {
   position: absolute;
   left: 0;
@@ -1541,6 +1591,14 @@ body.is-station .dot {
     width: max-content;
     max-width: calc(100vw - 28px);
     max-height: none;
+  }
+
+  .peek-prev {
+    left: 4px;
+  }
+
+  .peek-next {
+    right: 4px;
   }
 
   .rail-kicker,
