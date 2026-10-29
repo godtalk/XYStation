@@ -9,7 +9,7 @@ import { bindTheme } from "theme";
 import { buildHolos, layoutBeacons } from "holo";
 import { buildFields, spinWorks, dragWorks, startMedia } from "fields";
 import { applyProgress, setPhase, flick, drag, jumpTo, leaveStrip, tickMotion, bindNav } from "journey";
-import { closePeek } from "peek";
+import { closePeek, openPeek } from "peek";
 
 const body = document.body;
 const pct = document.getElementById("pct");
@@ -140,6 +140,15 @@ window.addEventListener(
 
 let touchJourney = 0;
 let touchFrom = "gate";
+let touchSpan = 0;
+const TAP_SLOP = 12;
+
+function openTappedWork(event) {
+  const el = event.target?.closest?.(".dot-work");
+  if (!el?.dataset.peekSrc) return false;
+  openPeek(el.dataset.peekSrc, el.dataset.peekName || "", el, el.dataset.peekVideo === "1");
+  return true;
+}
 
 function scrollOpenHolo(event, dy) {
   const holo = event.target.closest?.(".holo");
@@ -166,6 +175,7 @@ window.addEventListener(
   (event) => {
     runtime.lastTouchY = event.touches[0].clientY;
     touchJourney = 0;
+    touchSpan = 0;
     touchFrom = stopAt(cam.progress).key;
   },
   { passive: true },
@@ -180,7 +190,9 @@ window.addEventListener(
     const dy = runtime.lastTouchY - y;
     runtime.lastTouchY = y;
     if (!dy) return;
+    touchSpan += Math.abs(dy);
     if (scrollOpenHolo(event, dy)) return;
+    if (touchSpan < TAP_SLOP) return;
     event.preventDefault();
     const span = Math.max(innerHeight, 1);
     const across = Math.min(1, innerWidth / span);
@@ -196,8 +208,12 @@ window.addEventListener(
 
 window.addEventListener(
   "touchend",
-  () => {
+  (event) => {
     if (body.classList.contains("is-peek")) return;
+    if (touchSpan < TAP_SLOP && openTappedWork(event)) {
+      touchJourney = 0;
+      return;
+    }
     if (touchJourney > 64) leaveStrip(1, touchFrom);
     else if (touchJourney < -64) leaveStrip(-1, touchFrom);
     touchJourney = 0;

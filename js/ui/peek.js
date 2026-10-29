@@ -1,3 +1,5 @@
+import { isCoarse } from "util";
+
 const body = document.body;
 const PEEK_EASE = "0.48s cubic-bezier(0.22, 1, 0.36, 1)";
 let peekFrom = null;
@@ -41,19 +43,32 @@ function mediaSize(el) {
   };
 }
 
-function peekTarget(el) {
-  const { w: nw, h: nh } = mediaSize(el);
-  const maxW = innerWidth * 0.9;
-  const maxH = innerHeight * 0.82;
-  const s = Math.min(maxW / nw, maxH / nh);
-  const w = nw * s;
-  const h = nh * s;
+function frameFor(w, h) {
+  const phone = innerWidth < 720;
+  const maxW = Math.max(1, innerWidth * (phone ? 0.92 : 0.9));
+  const maxH = Math.max(1, innerHeight * (phone ? 0.68 : 0.82));
+  const s = Math.min(maxW / Math.max(w, 1), maxH / Math.max(h, 1));
+  const width = w * s;
+  const height = h * s;
   return {
-    left: (innerWidth - w) / 2,
-    top: (innerHeight - h) / 2,
-    width: w,
-    height: h,
+    left: (innerWidth - width) / 2,
+    top: (innerHeight - height) / 2,
+    width,
+    height,
   };
+}
+
+function peekTarget(el) {
+  const { w, h } = mediaSize(el);
+  return frameFor(w, h);
+}
+
+function sameURL(a, b) {
+  try {
+    return new URL(a, location.href).href === new URL(b, location.href).href;
+  } catch {
+    return a === b;
+  }
 }
 
 function placePeekFrame(frame, rect, animate) {
@@ -275,25 +290,53 @@ function mountMedia(src, caption, originEl, isVideo, seq, flyFrom) {
   video.removeAttribute("src");
   video.load();
   img.alt = caption || "作品";
-  if (flyFrom) placePeekFrame(frame, flyFrom, false);
-  img.src = src;
-  const run = () => {
+  const shown = originEl?.querySelector("img");
+  const preview = shown?.currentSrc || "";
+  const ready = Boolean(preview && shown.complete && shown.naturalWidth);
+  const aspectW = ready ? shown.naturalWidth : flyFrom?.width || 3;
+  const aspectH = ready ? shown.naturalHeight : flyFrom?.height || 2;
+  const target = frameFor(aspectW, aspectH);
+  const phone = isCoarse();
+  img.src = ready ? preview : src;
+  const show = (rect, animate) => {
     if (seq !== peekSeq) return;
-    const fit = () => {
-      if (seq !== peekSeq) return;
-      placePeekFrame(frame, peekTarget(img), true);
-      cap.style.opacity = "1";
-      peekBusy = false;
-    };
-    if (flyFrom) {
-      placePeekFrame(frame, flyFrom, false);
-      requestAnimationFrame(() => requestAnimationFrame(fit));
-      return;
-    }
-    fit();
+    placePeekFrame(frame, rect, animate);
+    cap.style.opacity = "1";
+    peekBusy = false;
   };
-  if (mediaReady(img, false)) run();
-  else img.addEventListener("load", run, { once: true });
+  if (phone || !flyFrom) show(target, false);
+  else {
+    placePeekFrame(frame, flyFrom, false);
+    requestAnimationFrame(() => requestAnimationFrame(() => show(target, true)));
+  }
+  if (ready && src && !sameURL(src, preview)) {
+    const full = new Image();
+    full.onload = () => {
+      if (seq !== peekSeq) return;
+      img.src = full.src;
+      show(frameFor(full.naturalWidth, full.naturalHeight), false);
+    };
+    full.src = src;
+    return;
+  }
+  if (ready) return;
+  const placeLoaded = () => {
+    if (seq !== peekSeq) return;
+    setWait("");
+    show(peekTarget(img), !phone);
+  };
+  if (mediaReady(img, false)) placeLoaded();
+  else {
+    img.addEventListener("load", placeLoaded, { once: true });
+    img.addEventListener(
+      "error",
+      () => {
+        if (seq !== peekSeq) return;
+        setWait("图片没能打开");
+      },
+      { once: true },
+    );
+  }
 }
 
 export function openPeek(src, caption, originEl, isVideo = false) {
