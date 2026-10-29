@@ -377,34 +377,15 @@ export function mountPointClouds(list) {
   (list || []).forEach((item) => riders.push(item));
 }
 
-function smoothstep(a, b, x) {
-  const u = clamp((x - a) / Math.max(0.001, b - a), 0, 1);
+function windowVis(at, until) {
+  const t = cam.progress;
+  if (t < at || t > until) return 0;
+  const span = Math.max(0.001, until - at);
+  const edge = Math.min(0.28, span * 0.32);
+  const into = Math.min(t - at, until - t);
+  if (into >= edge) return 1;
+  const u = into / edge;
   return u * u * (3 - 2 * u);
-}
-
-function riderPose(item) {
-  const span = item.to - item.from;
-  if (!(span > 0)) return null;
-  const u = (cam.progress - item.from) / span;
-  if (u <= 0.06 || u >= 0.995) return null;
-  const into = smoothstep(0.08, 0.2, u);
-  const gathered = smoothstep(0.08, 0.4, u);
-  const gatherHold = gathered * gathered * (3 - 2 * gathered);
-  const broke = smoothstep(0.58, 0.94, u);
-  const burst = broke * broke * (3 - 2 * broke);
-  const travel = smoothstep(0.12, 0.9, u);
-  const fade = 1 - smoothstep(0.8, 0.99, u);
-  const scatter = Math.max(1 - gatherHold, burst);
-  return {
-    fit: 0.16 + travel * 7.52,
-    scatter,
-    alpha: 0.7 * into * fade * (1 - scatter * 0.55),
-    yaw: item.yaw || 0,
-    shiftX: -0.82 + travel * 1.58,
-    shiftY: 0.42 - travel * 1.42,
-    driftX: 0,
-    driftY: 0,
-  };
 }
 
 export function loadPointModel(url) {
@@ -491,8 +472,7 @@ export function drawPoints(now) {
   const vis = 1 - fade * fade * (3 - 2 * fade);
   let riderOn = false;
   for (let i = 0; i < riders.length; i += 1) {
-    const pose = riderPose(riders[i]);
-    if (pose && pose.alpha > 0.02) riderOn = true;
+    if (windowVis(riders[i].at, riders[i].until) > 0.02) riderOn = true;
   }
   if (vis < 0.02 && !riderOn) {
     if (!pointsAsleep) {
@@ -538,20 +518,20 @@ export function drawPoints(now) {
   const thin = cloud.thin || cloud.buffer;
   const thinCount = cloud.thinCount || Math.round(cloud.count * 0.62);
   for (let i = 0; i < riders.length; i += 1) {
-    const pose = riderPose(riders[i]);
-    if (!pose || pose.alpha < 0.02) continue;
+    const item = riders[i];
+    const v = windowVis(item.at, item.until);
+    if (v < 0.02) continue;
+    const shift = item.shift || [0, 0];
     drawBatch(
       thin,
       thinCount,
-      pose.yaw + (now || 0) / 1000 * 0.08,
-      pose.scatter,
-      pose.alpha,
-      pose.fit,
-      pose.shiftX,
-      pose.shiftY,
+      (item.yaw || 0) + (now || 0) / 1000 * 0.12,
+      0,
+      0.5 * v,
+      item.fit || 0.68,
+      shift[0],
+      shift[1],
       now,
-      pose.driftX,
-      pose.driftY,
     );
   }
 }
