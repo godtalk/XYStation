@@ -142,6 +142,7 @@ let touchJourney = 0;
 let touchFrom = "gate";
 let touchSpan = 0;
 const TAP_SLOP = 12;
+const TOUCH_SCALE = 0.8;
 
 function openTappedWork(event) {
   const el = event.target?.closest?.(".dot-work");
@@ -200,7 +201,7 @@ window.addEventListener(
     if (dragged === "next") leaveStrip(1);
     else if (dragged === "prev") leaveStrip(-1);
     if (dragged) return;
-    drag((dy / span) * 2.4);
+    drag((dy / span) * TOUCH_SCALE);
     touchJourney += dy;
   },
   { passive: false },
