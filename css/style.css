@@ -1561,7 +1561,64 @@ body.is-station .dot {
   }
 
   .hud {
-    padding: 16px;
+    padding: 12px 12px 8px;
+    padding-top: max(12px, env(safe-area-inset-top));
+    gap: 8px;
+  }
+
+  .brand {
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .hud-right {
+    gap: 8px;
+    min-width: 0;
+    font-size: 12px;
+  }
+
+  .hud-line {
+    display: none;
+  }
+
+  .theme-switch {
+    font-size: 13px;
+    letter-spacing: 0.02em;
+    gap: 4px;
+  }
+
+  #clock {
+    letter-spacing: 0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .gate .kicker {
+    top: 58px;
+    width: calc(100vw - 32px);
+    max-width: calc(100vw - 32px);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    line-height: 1.45;
+    white-space: normal;
+    text-align: center;
+  }
+
+  #enter {
+    width: min(280px, calc(100vw - 32px));
+    bottom: calc(var(--hint-bottom) + 28px);
+  }
+
+  #enter span {
+    font-size: 12px;
+    letter-spacing: 0.02em;
+  }
+
+  #enter strong {
+    font-size: 14px;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
   }
 
   .rail {

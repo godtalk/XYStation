@@ -1,6 +1,6 @@
 // 改 JS 后只把 index.html importmap 里的 ?v= 往上加一号。
 import { cam, runtime } from "state";
-import { KEY_IMPULSE, WHEEL_SCALE } from "path";
+import { KEY_IMPULSE, WHEEL_SCALE, stopAt } from "path";
 import { resizeView, spawnDust, tickDust, drawWorld } from "dust";
 import { resizeVortex, drawVortex } from "vortex";
 import { resizePoints, drawPoints, loadPointModel, mountPointClouds } from "pointmodel";
@@ -138,10 +138,35 @@ window.addEventListener(
   { passive: false },
 );
 
+let touchJourney = 0;
+let touchFrom = "gate";
+
+function scrollOpenHolo(event, dy) {
+  const holo = event.target.closest?.(".holo");
+  if (!holo) return false;
+  const pane = holo.classList.contains("holo-resume") ? holo : holo.querySelector(".float-scroll");
+  if (!pane) return false;
+  const max = pane.scrollHeight - pane.clientHeight;
+  if (max <= 8) return false;
+  const atTop = pane.scrollTop <= 1;
+  const atBottom = pane.scrollTop >= max - 1;
+  if (dy > 0 && !atBottom) {
+    pane.scrollTop += dy;
+    return true;
+  }
+  if (dy < 0 && !atTop) {
+    pane.scrollTop += dy;
+    return true;
+  }
+  return false;
+}
+
 window.addEventListener(
   "touchstart",
   (event) => {
     runtime.lastTouchY = event.touches[0].clientY;
+    touchJourney = 0;
+    touchFrom = stopAt(cam.progress).key;
   },
   { passive: true },
 );
@@ -149,21 +174,35 @@ window.addEventListener(
 window.addEventListener(
   "touchmove",
   (event) => {
-    if (event.target.closest(".holo") || body.classList.contains("is-peek")) return;
-    event.preventDefault();
+    if (body.classList.contains("is-peek")) return;
     const y = event.touches[0].clientY;
-    // 手机竖滑：一屏高换成约 2.4 的路程（不到一站）；横向墙按屏宽/屏高跟上，方向仍用原来的 dy
+    // dy > 0：手指从下往上。简历能滚时先滚卡片，到底后再切站。
     const dy = runtime.lastTouchY - y;
     runtime.lastTouchY = y;
+    if (!dy) return;
+    if (scrollOpenHolo(event, dy)) return;
+    event.preventDefault();
     const span = Math.max(innerHeight, 1);
     const across = Math.min(1, innerWidth / span);
     const dragged = dragWorks(innerHeight > innerWidth ? dy : dy * across);
     if (dragged === "next") leaveStrip(1);
     else if (dragged === "prev") leaveStrip(-1);
     if (dragged) return;
-    drag((-dy / span) * 2.4);
+    drag((dy / span) * 2.4);
+    touchJourney += dy;
   },
   { passive: false },
+);
+
+window.addEventListener(
+  "touchend",
+  () => {
+    if (body.classList.contains("is-peek")) return;
+    if (touchJourney > 64) leaveStrip(1, touchFrom);
+    else if (touchJourney < -64) leaveStrip(-1, touchFrom);
+    touchJourney = 0;
+  },
+  { passive: true },
 );
 
 window.addEventListener("keydown", (event) => {

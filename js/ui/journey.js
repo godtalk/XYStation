@@ -111,9 +111,9 @@ export function jumpTo(key) {
   setRide(stop.at);
 }
 
-export function leaveStrip(dir) {
+export function leaveStrip(dir, fromKey) {
   if (busy()) return;
-  const cur = stopAt(cam.progress);
+  const cur = fromKey ? stopByKey(fromKey) : stopAt(cam.progress);
   const index = NAV_STOPS.findIndex((item) => item.key === cur.key);
   const next = NAV_STOPS[index + (dir < 0 ? -1 : 1)];
   if (!next) return;
