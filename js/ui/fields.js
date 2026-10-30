@@ -29,6 +29,43 @@ function bufferPct(clip) {
   return clip.readyState >= 4 ? 100 : 0;
 }
 
+function ensureMeter(el) {
+  let meter = el.querySelector(".clip-load");
+  if (meter) return meter;
+  meter = document.createElement("b");
+  meter.className = "clip-load";
+  meter.hidden = true;
+  el.appendChild(meter);
+  return meter;
+}
+
+function bindClipMeter(node, clip) {
+  const meter = ensureMeter(node.el);
+  if (meter.dataset.bound) return;
+  meter.dataset.bound = "1";
+  meter.hidden = false;
+  meter.textContent = "0%";
+  const paint = () => {
+    if (clip.error) {
+      meter.hidden = true;
+      return;
+    }
+    const pct = bufferPct(clip);
+    const framed = clip.readyState >= 2;
+    meter.textContent = `${pct}%`;
+    meter.hidden = pct >= 100 && framed;
+    if (framed) {
+      node.el.classList.add("is-frame", "is-ready");
+      node.el.classList.remove("is-pending");
+    }
+  };
+  clip.addEventListener("progress", paint);
+  clip.addEventListener("loadedmetadata", paint);
+  clip.addEventListener("loadeddata", paint);
+  clip.addEventListener("canplaythrough", paint);
+  paint();
+}
+
 function markFrame(node, clip) {
   const framed = clip.readyState >= 2;
   if (!framed) return;
@@ -134,6 +171,7 @@ function buildFields() {
           label.textContent = item.name;
           el.appendChild(label);
         }
+        ensureMeter(el);
       } else if (videoSrc) {
         el.classList.add("is-pending");
         const clip = document.createElement("video");
@@ -149,6 +187,7 @@ function buildFields() {
         clip.preload = "none";
         clip.dataset.src = src;
         el.insertBefore(clip, el.firstChild);
+        ensureMeter(el);
         el.addEventListener("pointerenter", () => {
           if (!el.contains(clip)) return;
           if (clip.dataset.src && !clip.getAttribute("src")) {
@@ -329,22 +368,44 @@ function pumpLoad() {
     loadBusy += 1;
     const img = node.el.querySelector("img");
     const url = node.thumb;
+    const meter = node.el.querySelector(".clip-load");
     if (!img || !url) {
       node.loaded = true;
       node.el.classList.remove("is-pending");
       loadBusy -= 1;
       continue;
     }
+    if (meter) {
+      meter.hidden = false;
+      meter.textContent = "0%";
+    }
     const done = () => {
       node.loaded = true;
       node.el.classList.add("is-ready");
       node.el.classList.remove("is-pending");
+      if (meter) meter.hidden = true;
       loadBusy -= 1;
       pumpLoad();
     };
-    img.addEventListener("load", done, { once: true });
-    img.addEventListener("error", done, { once: true });
-    img.src = url;
+    const xhr = new XMLHttpRequest();
+    xhr.open("GET", url);
+    xhr.responseType = "blob";
+    xhr.onprogress = (event) => {
+      if (!meter || !event.lengthComputable || !event.total) return;
+      meter.textContent = `${Math.min(99, Math.round((event.loaded / event.total) * 100))}%`;
+    };
+    xhr.onload = () => {
+      const shown = xhr.status < 400 && xhr.response ? URL.createObjectURL(xhr.response) : url;
+      img.addEventListener("load", done, { once: true });
+      img.addEventListener("error", done, { once: true });
+      img.src = shown;
+    };
+    xhr.onerror = () => {
+      img.addEventListener("load", done, { once: true });
+      img.addEventListener("error", done, { once: true });
+      img.src = url;
+    };
+    xhr.send();
   }
 }
 
@@ -358,9 +419,11 @@ function enqueueLoad(node, urgent) {
 
 function attachVideo(node) {
   const clip = node.el.querySelector("video");
-  if (!clip || clip.getAttribute("src") || !clip.dataset.src) return;
+  if (!clip || !clip.dataset.src) return;
+  bindClipMeter(node, clip);
+  if (clip.getAttribute("src")) return;
   videosOpen = true;
-  clip.preload = "metadata";
+  clip.preload = "auto";
   clip.src = clip.dataset.src;
   clip.addEventListener("loadeddata", () => {
     markFrame(node, clip);
@@ -368,6 +431,8 @@ function attachVideo(node) {
   }, { once: true });
   clip.addEventListener("error", () => {
     node.el.classList.remove("is-pending");
+    const meter = node.el.querySelector(".clip-load");
+    if (meter) meter.hidden = true;
   }, { once: true });
   showFrame(clip);
 }

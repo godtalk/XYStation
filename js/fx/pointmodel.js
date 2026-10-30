@@ -377,15 +377,26 @@ export function mountPointClouds(list) {
   (list || []).forEach((item) => riders.push(item));
 }
 
-function windowVis(at, until) {
-  const t = cam.progress;
-  if (t < at || t > until) return 0;
-  const span = Math.max(0.001, until - at);
-  const edge = Math.min(0.28, span * 0.32);
-  const into = Math.min(t - at, until - t);
-  if (into >= edge) return 1;
-  const u = into / edge;
+function smoothstep(a, b, x) {
+  const u = clamp((x - a) / Math.max(0.001, b - a), 0, 1);
   return u * u * (3 - 2 * u);
+}
+
+function riderPose(item) {
+  const span = item.to - item.from;
+  if (!(span > 0)) return null;
+  const u = (cam.progress - item.from) / span;
+  if (u <= 0 || u >= 1) return null;
+  const fade = Math.min(smoothstep(0, 0.1, u), 1 - smoothstep(0.9, 1, u));
+  const travel = smoothstep(0.08, 0.92, u);
+  const shift = item.shift || [0, 0];
+  return {
+    fit: item.fit || 0.68,
+    alpha: 0.62 * fade,
+    yaw: (item.yaw || 0) + travel * 0.45,
+    shiftX: -0.58 + travel * 1.16,
+    shiftY: shift[1] || 0,
+  };
 }
 
 export function loadPointModel(url) {
@@ -472,7 +483,8 @@ export function drawPoints(now) {
   const vis = 1 - fade * fade * (3 - 2 * fade);
   let riderOn = false;
   for (let i = 0; i < riders.length; i += 1) {
-    if (windowVis(riders[i].at, riders[i].until) > 0.02) riderOn = true;
+    const pose = riderPose(riders[i]);
+    if (pose && pose.alpha > 0.02) riderOn = true;
   }
   if (vis < 0.02 && !riderOn) {
     if (!pointsAsleep) {
@@ -518,19 +530,17 @@ export function drawPoints(now) {
   const thin = cloud.thin || cloud.buffer;
   const thinCount = cloud.thinCount || Math.round(cloud.count * 0.62);
   for (let i = 0; i < riders.length; i += 1) {
-    const item = riders[i];
-    const v = windowVis(item.at, item.until);
-    if (v < 0.02) continue;
-    const shift = item.shift || [0, 0];
+    const pose = riderPose(riders[i]);
+    if (!pose || pose.alpha < 0.02) continue;
     drawBatch(
       thin,
       thinCount,
-      (item.yaw || 0) + (now || 0) / 1000 * 0.12,
+      pose.yaw,
       0,
-      0.5 * v,
-      item.fit || 0.68,
-      shift[0],
-      shift[1],
+      pose.alpha,
+      pose.fit,
+      pose.shiftX,
+      pose.shiftY,
       now,
     );
   }
