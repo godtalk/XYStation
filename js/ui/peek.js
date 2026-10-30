@@ -143,7 +143,8 @@ function resetPeekFrame(frame, img, video) {
   frame.style.width = "0px";
   frame.style.height = "0px";
   frame.style.transform = "none";
-  frame.classList.remove("has-video");
+  frame.classList.remove("has-video", "is-zoom", "is-panning");
+  img.style.transform = "";
   img.src = "";
   img.hidden = false;
   video.pause();
@@ -224,6 +225,71 @@ let peekList = [];
 let peekIndex = -1;
 let peekClosing = false;
 let lastWheel = 0;
+let zoom = 1;
+let panX = 0;
+let panY = 0;
+let panDrag = null;
+
+function imagePeek() {
+  if (!body.classList.contains("is-peek") || peekClosing) return false;
+  const frame = document.querySelector(".peek-frame");
+  const img = document.getElementById("peek-img");
+  return Boolean(frame && img && !frame.classList.contains("has-video") && !img.hidden);
+}
+
+function applyZoom() {
+  const { frame, img } = peekEls();
+  if (!frame || !img) return;
+  const on = zoom > 1.001 && !frame.classList.contains("has-video");
+  frame.classList.toggle("is-zoom", on && body.classList.contains("is-peek") && !peekClosing);
+  frame.classList.toggle("is-panning", Boolean(on && panDrag));
+  img.style.transform = on ? `translate(${panX}px, ${panY}px) scale(${zoom})` : "";
+}
+
+function clampPan() {
+  const frame = document.querySelector(".peek-frame");
+  if (!frame || zoom <= 1) {
+    panX = 0;
+    panY = 0;
+    return;
+  }
+  const rect = frame.getBoundingClientRect();
+  const maxX = (rect.width * (zoom - 1)) / 2;
+  const maxY = (rect.height * (zoom - 1)) / 2;
+  panX = Math.min(maxX, Math.max(-maxX, panX));
+  panY = Math.min(maxY, Math.max(-maxY, panY));
+}
+
+function resetZoom() {
+  zoom = 1;
+  panX = 0;
+  panY = 0;
+  panDrag = null;
+  applyZoom();
+}
+
+function zoomAt(clientX, clientY, next) {
+  const frame = document.querySelector(".peek-frame");
+  if (!frame) return;
+  const rect = frame.getBoundingClientRect();
+  const inside = clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
+  const qx = inside ? clientX - rect.left - rect.width / 2 : 0;
+  const qy = inside ? clientY - rect.top - rect.height / 2 : 0;
+  const z = Math.min(4, Math.max(1, next));
+  if (z <= 1) {
+    zoom = 1;
+    panX = 0;
+    panY = 0;
+    applyZoom();
+    return;
+  }
+  const k = z / zoom;
+  panX = qx * (1 - k) + panX * k;
+  panY = qy * (1 - k) + panY * k;
+  zoom = z;
+  clampPan();
+  applyZoom();
+}
 
 function neighbors(originEl) {
   const strip = originEl?.closest(".works-strip");
@@ -249,6 +315,7 @@ function markOrigin(originEl) {
 }
 
 function mountMedia(src, caption, originEl, isVideo, seq, flyFrom) {
+  resetZoom();
   const { frame, img, video, cap } = peekEls();
   cap.textContent = caption || "";
   cap.style.opacity = flyFrom ? "0" : "1";
@@ -396,6 +463,11 @@ window.addEventListener(
     event.stopImmediatePropagation();
     const line = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? innerHeight : 1;
     const dy = event.deltaY * line;
+    if (!dy) return;
+    if (imagePeek()) {
+      zoomAt(event.clientX, event.clientY, zoom * Math.exp(-dy * 0.0022));
+      return;
+    }
     if (Math.abs(dy) < 12) return;
     const now = performance.now();
     if (now - lastWheel < 240) return;
@@ -405,8 +477,44 @@ window.addEventListener(
   { passive: false },
 );
 
+window.addEventListener("pointerdown", (event) => {
+  if (zoom <= 1.001 || !imagePeek() || event.button !== 0) return;
+  if (event.target.closest(".peek-arrow")) return;
+  const frame = document.querySelector(".peek-frame");
+  if (!frame || (event.target !== frame && !frame.contains(event.target))) return;
+  panDrag = { x: event.clientX, y: event.clientY, panX, panY, moved: false };
+  applyZoom();
+  event.preventDefault();
+});
+
+window.addEventListener("pointermove", (event) => {
+  if (!panDrag) return;
+  const dx = event.clientX - panDrag.x;
+  const dy = event.clientY - panDrag.y;
+  if (dx * dx + dy * dy > 9) panDrag.moved = true;
+  panX = panDrag.panX + dx;
+  panY = panDrag.panY + dy;
+  clampPan();
+  applyZoom();
+});
+
+window.addEventListener("pointerup", () => {
+  if (!panDrag) return;
+  const moved = panDrag.moved;
+  panDrag = null;
+  applyZoom();
+  if (!moved) return;
+  const stop = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    window.removeEventListener("click", stop, true);
+  };
+  window.addEventListener("click", stop, true);
+});
+
 export function closePeek() {
   if (!body.classList.contains("is-peek")) return;
+  resetZoom();
   const { peek, frame, img, video, cap } = peekEls();
   const seq = ++peekSeq;
   const back = originRect(peekFrom);

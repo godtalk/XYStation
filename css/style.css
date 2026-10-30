@@ -841,6 +841,19 @@ html[data-theme="dark"] .dot-soft.has-img:focus-visible img {
   color: var(--accent);
 }
 
+.peek-frame.is-zoom {
+  pointer-events: auto;
+  cursor: grab;
+}
+
+.peek-frame.is-zoom.is-panning {
+  cursor: grabbing;
+}
+
+.peek-frame.is-zoom img {
+  transform-origin: center center;
+}
+
 .peek-frame {
   position: absolute;
   left: 0;
