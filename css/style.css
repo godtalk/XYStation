@@ -157,6 +157,25 @@ canvas.is-off {
   color: var(--muted);
 }
 
+.bgm-switch {
+  isolation: isolate;
+  mix-blend-mode: normal;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  font-family: "Chivo Mono", ui-monospace, monospace;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  color: var(--muted);
+}
+
+.bgm-switch.is-on {
+  color: var(--accent);
+}
+
 .theme-switch .theme-sep {
   color: var(--line);
   font-weight: 500;

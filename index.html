@@ -20,7 +20,7 @@
       rel="stylesheet"
     />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="css/style.css?v=perf13" />
+    <link rel="stylesheet" href="css/style.css?v=perf14" />
     <script type="importmap">
       {
         "imports": {
@@ -38,9 +38,10 @@
           "theme": "./js/ui/theme.js?v=perf1",
           "holo": "./js/ui/holo.js?v=perf2",
           "fields": "./js/ui/fields.js?v=perf7",
-          "peek": "./js/ui/peek.js?v=perf14",
+          "peek": "./js/ui/peek.js?v=perf15",
+          "bgm": "./js/ui/bgm.js?v=perf1",
           "journey": "./js/ui/journey.js?v=perf8",
-          "main": "./js/main.js?v=perf15"
+          "main": "./js/main.js?v=perf16"
         }
       }
     </script>
@@ -59,6 +60,7 @@
         XYSTATION
       </div>
       <div class="hud-right">
+        <button id="bgm" class="bgm-switch" type="button" aria-pressed="true" aria-label="关闭背景音乐">声</button>
         <button id="theme" class="theme-switch" type="button" aria-pressed="true" aria-label="当前暗色，切换亮色">
           <span class="theme-light">亮</span>
           <span class="theme-sep" aria-hidden="true">/</span>

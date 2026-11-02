@@ -10,6 +10,7 @@ import { buildHolos, layoutBeacons } from "holo";
 import { buildFields, spinWorks, dragWorks, startMedia } from "fields";
 import { applyProgress, setPhase, flick, drag, jumpTo, leaveStrip, tickMotion, bindNav } from "journey";
 import { closePeek, openPeek } from "peek";
+import "bgm";
 
 const body = document.body;
 const pct = document.getElementById("pct");

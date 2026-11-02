@@ -1,4 +1,5 @@
 import { isCoarse } from "util";
+import { duckBgm } from "bgm";
 
 const body = document.body;
 const PEEK_EASE = "0.48s cubic-bezier(0.22, 1, 0.36, 1)";
@@ -341,6 +342,13 @@ function mountMedia(src, caption, originEl, isVideo, seq, flyFrom) {
       frame.insertBefore(clip, cap);
     }
     bindPeekClip(clip);
+    if (!clip.dataset.duck) {
+      clip.dataset.duck = "1";
+      const sync = () => duckBgm(body.classList.contains("is-peek") && !clip.paused && !clip.ended);
+      clip.addEventListener("play", sync);
+      clip.addEventListener("pause", sync);
+      clip.addEventListener("ended", sync);
+    }
     const fit = () => {
       if (seq !== peekSeq) return;
       placePeekFrame(frame, peekTarget(clip), !flyFrom);
@@ -356,6 +364,7 @@ function mountMedia(src, caption, originEl, isVideo, seq, flyFrom) {
   video.pause();
   video.removeAttribute("src");
   video.load();
+  duckBgm(false);
   img.alt = caption || "作品";
   const shown = originEl?.querySelector("img");
   const preview = shown?.currentSrc || "";
@@ -515,6 +524,7 @@ window.addEventListener("pointerup", () => {
 export function closePeek() {
   if (!body.classList.contains("is-peek")) return;
   resetZoom();
+  duckBgm(false);
   const { peek, frame, img, video, cap } = peekEls();
   const seq = ++peekSeq;
   const back = originRect(peekFrom);
