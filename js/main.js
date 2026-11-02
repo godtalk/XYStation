@@ -10,7 +10,7 @@ import { buildHolos, layoutBeacons } from "holo";
 import { buildFields, spinWorks, dragWorks, startMedia } from "fields";
 import { applyProgress, setPhase, flick, drag, jumpTo, leaveStrip, tickMotion, bindNav } from "journey";
 import { closePeek, openPeek } from "peek";
-import "bgm";
+import { startBgm } from "bgm";
 
 const body = document.body;
 const pct = document.getElementById("pct");
@@ -50,6 +50,7 @@ function tickBoot(now) {
   runtime.boot = 1;
   runtime.ready = true;
   setPhase("is-gate");
+  startBgm();
   startMedia();
 }
 
@@ -107,7 +108,10 @@ window.addEventListener("mousemove", (event) => {
   document.documentElement.style.setProperty("--my", `${(event.clientY / innerHeight) * 100}%`);
 });
 
-document.getElementById("enter").addEventListener("click", () => jumpTo("resume"));
+document.getElementById("enter").addEventListener("click", () => {
+  startBgm(true);
+  jumpTo("resume");
+});
 document.querySelectorAll(".beacon[data-id]").forEach((el) => {
   el.addEventListener("click", () => jumpTo(el.dataset.id));
 });
@@ -133,8 +137,14 @@ window.addEventListener(
     else if (spun === "prev") leaveStrip(-1);
     if (spun) return;
     const atGate = runtime.phase !== "is-station" || cam.progress < 0.35;
-    if (atGate) flick(Math.abs(dy) * WHEEL_SCALE);
-    else flick(dy * WHEEL_SCALE);
+    if (atGate) {
+      const act = navigator.userActivation;
+      if (!gateSoundTried || act?.isActive || act?.hasBeenActive) {
+        gateSoundTried = true;
+        startBgm(true);
+      }
+      flick(Math.abs(dy) * WHEEL_SCALE);
+    } else flick(dy * WHEEL_SCALE);
   },
   { passive: false },
 );
@@ -142,6 +152,7 @@ window.addEventListener(
 let touchJourney = 0;
 let touchFrom = "gate";
 let touchSpan = 0;
+let gateSoundTried = false;
 const TAP_SLOP = 12;
 const TOUCH_SCALE = 0.8;
 
