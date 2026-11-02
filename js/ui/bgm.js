@@ -22,10 +22,9 @@ try {
 
 function paint() {
   if (!button) return;
-  const playing = enabled && !audio.paused;
-  button.classList.toggle("is-on", playing);
-  button.setAttribute("aria-pressed", playing ? "true" : "false");
-  button.setAttribute("aria-label", playing ? "关闭背景音乐" : "打开背景音乐");
+  button.classList.toggle("is-on", enabled);
+  button.setAttribute("aria-pressed", enabled ? "true" : "false");
+  button.setAttribute("aria-label", enabled ? "关闭背景音乐" : "打开背景音乐");
 }
 
 function level() {
