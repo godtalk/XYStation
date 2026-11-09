@@ -382,11 +382,32 @@ function smoothstep(a, b, x) {
   return u * u * (3 - 2 * u);
 }
 
+function quad(a, b, c, t) {
+  const s = 1 - t;
+  return s * s * a + 2 * s * t * b + t * t * c;
+}
+
 function riderPose(item) {
   const span = item.to - item.from;
   if (!(span > 0)) return null;
   const u = (cam.progress - item.from) / span;
   if (u <= 0 || u >= 1) return null;
+  if (item.arc) {
+    const travel = clamp((u - 0.02) / 0.96, 0, 1);
+    const burst = smoothstep(0.75, 1, travel);
+    const fadeIn = smoothstep(0, 0.06, u);
+    const grow = clamp(travel / 0.75, 0, 1);
+    const base = item.fit || 0.7;
+    const dir = item.mirror ? -1 : 1;
+    return {
+      fit: base * (1 + grow * 4),
+      alpha: 0.72 * fadeIn * (1 - burst * 0.82),
+      yaw: dir * ((item.yaw || 0) + travel * 0.5),
+      shiftX: dir * quad(-0.58, -0.18, 0.86, travel),
+      shiftY: quad(0.04, -1.00, -0.90, travel),
+      scatter: burst,
+    };
+  }
   const fade = Math.min(smoothstep(0, 0.1, u), 1 - smoothstep(0.9, 1, u));
   const travel = smoothstep(0.08, 0.92, u);
   const shift = item.shift || [0, 0];
@@ -396,14 +417,51 @@ function riderPose(item) {
     yaw: (item.yaw || 0) + travel * 0.45,
     shiftX: -0.58 + travel * 1.16,
     shiftY: shift[1] || 0,
+    scatter: 0,
   };
 }
 
+const GATE_URL = "OBJ/%E7%82%AE%E8%BD%A62.obj?v=2";
+const meshes = new Map();
+
+function ensureMesh(url) {
+  let mesh = meshes.get(url);
+  if (mesh) return mesh;
+  mesh = { buffer: gl.createBuffer(), thin: gl.createBuffer(), count: 0, thinCount: 0 };
+  meshes.set(url, mesh);
+  return mesh;
+}
+
+function uploadMesh(url, built) {
+  const mesh = ensureMesh(url);
+  mesh.count = built.pts.length / 4;
+  gl.bindBuffer(gl.ARRAY_BUFFER, mesh.buffer);
+  gl.bufferData(gl.ARRAY_BUFFER, built.pts, gl.STATIC_DRAW);
+  const thin = decimate(built.pts, 0.62);
+  mesh.thinCount = thin.length / 4;
+  gl.bindBuffer(gl.ARRAY_BUFFER, mesh.thin);
+  gl.bufferData(gl.ARRAY_BUFFER, thin, gl.STATIC_DRAW);
+  if (url !== GATE_URL) return mesh;
+  cloud.buffer = mesh.buffer;
+  cloud.thin = mesh.thin;
+  cloud.count = mesh.count;
+  cloud.thinCount = mesh.thinCount;
+  modelReadyAt = performance.now();
+  if (cloud.shell && built.mesh.length) {
+    cloud.shellCount = built.mesh.length / 3;
+    gl.bindBuffer(gl.ARRAY_BUFFER, cloud.shell);
+    gl.bufferData(gl.ARRAY_BUFFER, built.mesh, gl.STATIC_DRAW);
+  }
+  return mesh;
+}
+
 export function loadPointModel(url) {
-  if (!gl) return Promise.resolve();
+  if (!gl || !url) return Promise.resolve();
   init();
   if (!cloud.program) return Promise.resolve();
-  return fetch(url)
+  const mesh = ensureMesh(url);
+  if (mesh.pending) return mesh.pending;
+  mesh.pending = fetch(url)
     .then((res) => {
       if (!res.ok) throw new Error("obj");
       return res.text();
@@ -411,22 +469,18 @@ export function loadPointModel(url) {
     .then((text) => {
       const built = sampleCloud(text);
       if (!built?.pts.length) return;
-      cloud.count = built.pts.length / 4;
-      gl.bindBuffer(gl.ARRAY_BUFFER, cloud.buffer);
-      gl.bufferData(gl.ARRAY_BUFFER, built.pts, gl.STATIC_DRAW);
-      const thin = decimate(built.pts, 0.62);
-      cloud.thinCount = thin.length / 4;
-      if (!cloud.thin) cloud.thin = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER, cloud.thin);
-      gl.bufferData(gl.ARRAY_BUFFER, thin, gl.STATIC_DRAW);
-      modelReadyAt = performance.now();
-      if (cloud.shell && built.mesh.length) {
-        cloud.shellCount = built.mesh.length / 3;
-        gl.bindBuffer(gl.ARRAY_BUFFER, cloud.shell);
-        gl.bufferData(gl.ARRAY_BUFFER, built.mesh, gl.STATIC_DRAW);
-      }
+      uploadMesh(url, built);
     })
     .catch(() => {});
+  return mesh.pending;
+}
+
+export function loadPointModels(urls) {
+  const list = [];
+  (urls || []).forEach((url) => {
+    if (url && !list.includes(url)) list.push(url);
+  });
+  return list.reduce((chain, url) => chain.then(() => loadPointModel(url)), Promise.resolve());
 }
 
 export function resizePoints() {
@@ -527,16 +581,15 @@ export function drawPoints(now) {
       now,
     );
   }
-  const thin = cloud.thin || cloud.buffer;
-  const thinCount = cloud.thinCount || Math.round(cloud.count * 0.62);
   for (let i = 0; i < riders.length; i += 1) {
     const pose = riderPose(riders[i]);
-    if (!pose || pose.alpha < 0.02) continue;
+    const mesh = meshes.get(riders[i].url);
+    if (!pose || pose.alpha < 0.02 || !mesh?.count) continue;
     drawBatch(
-      thin,
-      thinCount,
+      mesh.thin || mesh.buffer,
+      mesh.thinCount || mesh.count,
       pose.yaw,
-      0,
+      pose.scatter || 0,
       pose.alpha,
       pose.fit,
       pose.shiftX,

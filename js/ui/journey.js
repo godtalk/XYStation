@@ -19,6 +19,11 @@ const SNAP_IDLE = 220;
 const COAST_DAMP = 0.9;
 const REST_VEL = 0.00045;
 const WHEEL_BOOST = 1;
+const PATH_PACE = 2;
+
+function paceAt() {
+  return PATH_PACE;
+}
 
 let ride = null;
 let lastTick = 0;
@@ -41,11 +46,12 @@ function setRide(to, durScale = 1) {
     ride = null;
     return;
   }
+  const dist = Math.abs(to - cam.progress);
   ride = {
     from: cam.progress,
     to,
     start: performance.now(),
-    dur: durationFor(Math.abs(to - cam.progress)) * durScale,
+    dur: (durationFor(dist) / PATH_PACE) * durScale,
   };
 }
 
@@ -133,7 +139,7 @@ export function drag(delta) {
   if (busy() || !delta) return;
   lastInput = performance.now();
   ride = null;
-  cam.progress = clamp(cam.progress + delta, 0, PATH_MAX);
+  cam.progress = clamp(cam.progress + delta * paceAt(cam.progress), 0, PATH_MAX);
   cam.vel = clamp(delta, -VEL_MAX, VEL_MAX);
   cam.target = cam.progress;
 }
@@ -156,7 +162,7 @@ export function tickMotion(now) {
       ride = null;
     }
   } else {
-    cam.progress = clamp(cam.progress + cam.vel, 0, PATH_MAX);
+    cam.progress = clamp(cam.progress + cam.vel * paceAt(cam.progress), 0, PATH_MAX);
     cam.vel *= COAST_DAMP ** frames;
     if (cam.progress <= 0 && cam.vel < 0) cam.vel = 0;
     if (cam.progress >= PATH_MAX && cam.vel > 0) cam.vel = 0;

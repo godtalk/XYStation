@@ -3,7 +3,7 @@ import { cam, runtime } from "state";
 import { KEY_IMPULSE, WHEEL_SCALE, stopAt } from "path";
 import { resizeView, spawnDust, tickDust, drawWorld } from "dust";
 import { resizeVortex, drawVortex } from "vortex";
-import { resizePoints, drawPoints, loadPointModel, mountPointClouds } from "pointmodel";
+import { resizePoints, drawPoints, loadPointModels, mountPointClouds } from "pointmodel";
 import { POINT_CLOUDS } from "pointclouds";
 import { bindTheme } from "theme";
 import { buildHolos, layoutBeacons } from "holo";
@@ -80,7 +80,7 @@ function wheelInScrollableText(event) {
 }
 
 resize();
-loadPointModel("OBJ/%E7%82%AE%E8%BD%A62.obj?v=2");
+loadPointModels(["OBJ/%E7%82%AE%E8%BD%A62.obj?v=2", ...POINT_CLOUDS.map((item) => item.url)]);
 mountPointClouds(POINT_CLOUDS);
 spawnDust();
 buildHolos();

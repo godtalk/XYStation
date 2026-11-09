@@ -7,7 +7,9 @@ export const cards = {
       <p class="cv-info">北京　1990.5　北京工业大学</p>
       <p class="cv-hit"><a href="tel:18612238615">18612238615</a></p>
       <p class="cv-hit"><a href="mailto:zxy08165108@163.com">zxy08165108@163.com</a></p>
-      <p class="cv-quote">职场老鸟一只，对游戏美术兴趣不减反增。保持学习心态，愿意尝试新技能，永远不会失去求知的欲望。</p>`,
+      <p class="cv-quote">擅长半写实风格场景设计与落地。</p>
+      <p class="cv-quote">能独立完成从概念到引擎内呈现的全流程，熟悉 Substance Designer 与 ShaderGraph 材质工作流，可与程序协同制定材质方案、管控 shader 变体规模。</p>
+      <p class="cv-quote">自主开发 ShaderGraph → HLSL 转换工具，绑定工程后可自动检测并批量转换项目内 ShaderGraph 资产；配套项目级 shader 规范规则集，由 AI 执行重构，本人负责美术效果验收与变体收敛。</p>`,
     right: `
       <p class="cv-job s1"><span class="cv-time">2022.11 — 至今</span><strong>猩球游戏</strong><b>资深场景</b></p>
       <p class="cv-job s2"><span class="cv-time">2021.11 — 2022.8</span><strong>麦吉太文</strong><b>场景原画 · 战棋</b></p>

@@ -1193,14 +1193,19 @@ html[data-theme="dark"] .dot-soft.has-img:focus-visible img {
 }
 
 .cv-quote {
-  max-width: 15em;
+  max-width: 28em;
   margin-top: 20px;
   margin-left: auto;
   margin-right: 0;
+  text-align: left;
   font-size: clamp(14px, 1vw, 18px);
   font-weight: 500;
   line-height: 1.75;
   color: var(--ink);
+}
+
+.cv-quote + .cv-quote {
+  margin-top: 0.75em;
 }
 
 .cv-job {
