@@ -78,19 +78,23 @@ function sampleWord(text) {
   const maxW = innerWidth * 0.62;
   const spanZ = (maxW * depth) / (SPACE * focal);
   const gap = clamp(maxW / 520, 1.55, 2.6);
-  const step = Math.round(clamp((gap * bw) / maxW, 3, 11));
+  const step = clamp((gap * bw) / maxW, 3, 11) / Math.sqrt(1.2);
   const screenStep = (step / Math.max(bw, 1)) * maxW;
   titleDot = clamp(screenStep * 0.3, 0.32, 1.45);
   const spanY = spanZ * (bh / bw);
-  const edgeStride = Math.max(2, Math.round(step * 0.45));
+  const edgeStride = Math.max(1.6, step * 0.45);
+  const onGrid = (value, origin, stride) => {
+    const k = Math.round((value - origin) / stride);
+    return Math.abs(value - (origin + k * stride)) < 0.51;
+  };
   const pts = [];
   for (let y = minY; y <= maxY; y += 1) {
     for (let x = minX; x <= maxX; x += 1) {
       if (!on(x, y)) continue;
       const edge = !on(x - 1, y) || !on(x + 1, y) || !on(x, y - 1) || !on(x, y + 1);
       if (edge) {
-        if ((x + y) % edgeStride) continue;
-      } else if (x % step || y % step) continue;
+        if (!onGrid(x + y, 0, edgeStride)) continue;
+      } else if (!onGrid(x, minX, step) || !onGrid(y, minY, step)) continue;
       const u = (x - cx) / bw;
       const v = (y - cy) / bh;
       pts.push({
@@ -330,19 +334,13 @@ export function drawWorld() {
     if (p.glyph) {
       a.x += cam.lookX * TITLE_PARALLAX_X * (1 - scatter);
       a.y += cam.lookY * TITLE_PARALLAX_Y * (1 - scatter);
-      const formed = 0.9;
-      const bg = clamp(0.2 + 90 / (a.depth + 28), 0.18, 0.5);
-      const fade = runtime.ready
-        ? formed * (1 - scatter) + bg * scatter
-        : formed * (0.22 + 0.78 * hold);
       const formedR = titleDot * (p.edge ? 0.9 : 0.55) * tint.titleScale;
       const spaceR = clamp(a.s * (p.edge ? 0.038 : 0.024), 0.5, 2.6);
       const r = runtime.ready
         ? formedR * (1 - scatter) + spaceR * scatter
         : formedR;
-      const sizeFade = runtime.ready ? clamp(0.7 / Math.max(r, 0.4), 0.28, 1) : 1;
-      ctx.globalAlpha = (p.edge ? fade : fade * (0.5 + 0.25 * scatter)) * sizeFade;
-      ctx.fillStyle = tint.title;
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = "#ffffff";
       ctx.beginPath();
       ctx.arc(a.x, a.y, r, 0, Math.PI * 2);
       ctx.fill();

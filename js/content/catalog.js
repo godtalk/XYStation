@@ -76,7 +76,6 @@ export const fields = {
       { name: "08.24", video: "mp4/MP4_Unity/bandicam 2026-08-24 17-20-29-543.mp4", pack: "unity" },
       { name: "08.25", video: "mp4/MP4_Unity/bandicam 2026-08-25 16-59-36-004.mp4", pack: "unity" },
       { name: "08.25", video: "mp4/MP4_Unity/fd6f41dac643a094b6c20c7fda4d83b8_raw.mp4", pack: "unity" },
-      { name: "08.28", video: "mp4/MP4_Unity/bandicam 2026-08-28 12-52-50-223.mp4", pack: "unity" },
       { name: "09.18", video: "mp4/MP4_Unity/bandicam 2026-09-18 13-20-03-723.mp4", pack: "unity" },
       { name: "09.18", video: "mp4/MP4_Unity/bandicam 2026-09-18 13-26-48-936.mp4", pack: "unity" },
       { name: "10.14", video: "mp4/MP4_Unity/bandicam 2026-10-14 14-11-59-168.mp4", pack: "unity" },
