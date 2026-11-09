@@ -35,7 +35,7 @@ export function isVideoSrc(src) {
   return /\.(mp4|webm|ogg|mov)(\?|#|$)/i.test(src || "");
 }
 
-export const MEDIA_VER = "fs1";
+export const MEDIA_VER = "fs3";
 
 export function mediaURL(path) {
   if (!path) return "";
